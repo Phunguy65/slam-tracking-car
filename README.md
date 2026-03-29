@@ -71,19 +71,6 @@ LiDAR scan (mỗi 100ms)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Chạy nhanh
 
 ```bash

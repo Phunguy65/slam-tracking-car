@@ -10,4 +10,7 @@ class Config:
     MQTT_PASSWORD="super_secret_password_123"
     MQTT_KEEPALIVE= 60
     LIDAR_OBSTACLE_THRESHOLD_CM= 10
+    AUTOPILOT_LOOP_HZ= 10
+    LIDAR_SLOW_THRESHOLD_CM= 50
+    WAYPOINT_ARRIVAL_RADIUS_M= 1.0
 settings = Config()
