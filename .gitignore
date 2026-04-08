@@ -1,0 +1,43 @@
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
+.ace-tool/
+.cache/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.swp
+*.swo
+*~
+
+# ── ROS2 build artifacts (colcon output in repo root) ────────────────────────
+build/
+install/
+log/
+*.pyc
+__pycache__/
+*.egg-info/
+
+# ── PlatformIO ──────────────────────────────────────────────────────────────
+firmware/.pio/
+firmware/.vscode/
+
+# ── Maps (large binary files — track selectively) ───────────────────────────
+# Uncomment below to ignore all maps by default:
+# src/slam_car_bringup/maps/*.pgm
+# src/slam_car_bringup/maps/*.yaml
+
+# ── Environment / Secrets ───────────────────────────────────────────────────
+.env
+*.env
+credentials.json
+firmware/include/config.h
+!firmware/include/config.h.example
+
+# ── OS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ────────────────────────────────────────────────────────────────────
+logs/
+*.log
