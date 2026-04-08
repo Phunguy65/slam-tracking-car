@@ -1,0 +1,8 @@
+# Request to switch robot mode
+uint8 mode
+---
+# Response
+bool success
+string message
+uint8 previous_mode
+uint8 current_mode

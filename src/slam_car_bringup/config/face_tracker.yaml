@@ -1,0 +1,29 @@
+# Face tracker configuration
+face_tracker_node:
+  ros__parameters:
+    # Detection
+    detection_method: "mediapipe"   # "mediapipe" or "opencv_dnn"
+    min_detection_confidence: 0.5
+    min_face_size: 0.1              # Minimum face size as fraction of frame
+
+    # Tracking PID controller
+    # Horizontal (yaw) — center face in frame
+    pid_yaw_kp: 0.3
+    pid_yaw_ki: 0.0
+    pid_yaw_kd: 0.05
+    # Forward/backward — maintain target distance
+    pid_linear_kp: 0.2
+    pid_linear_ki: 0.0
+    pid_linear_kd: 0.05
+
+    # Speed limits
+    max_linear_speed: 0.2           # m/s
+    max_angular_speed: 0.8          # rad/s
+
+    # Target
+    target_face_ratio: 0.25         # Desired face size as fraction of frame width
+    lost_timeout: 2.0               # Seconds before stopping when face lost
+
+    # Topics
+    image_topic: "/camera/image_raw"
+    cmd_vel_topic: "/cmd_vel"

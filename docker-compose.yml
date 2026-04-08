@@ -1,17 +1,28 @@
 # docker-compose.yml
+# Optional services for SLAM Tracking Car
+#
+# The devcontainer handles the main ROS2 environment.
+# This file provides standalone services that can be used
+# independently or alongside the devcontainer.
+
 services:
+  # micro-ROS Agent — bridges ESP32 micro-ROS ↔ full ROS2 DDS
+  # Use this if you want the agent as a standalone container
+  # (otherwise, run it directly inside the devcontainer)
+  micro-ros-agent:
+    image: microros/micro-ros-agent:humble
+    network_mode: host
+    command: udp4 --port 8888
+    restart: unless-stopped
+
+  # Mosquitto MQTT broker — legacy support
+  # Only needed if using legacy Python+MQTT code from legacy/ folder
   mosquitto:
     image: eclipse-mosquitto:2
     ports:
       - "1883:1883"
-      - "9001:9001"   
+      - "9001:9001"
     volumes:
-      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
-
-  backend:
-    build: .
-    depends_on:
-      - mosquitto
-    environment:
-      - MQTT_BROKER=mosquitto
-      - MQTT_PORT=1883
+      - ./legacy/broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    profiles:
+      - legacy

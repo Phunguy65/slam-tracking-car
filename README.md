@@ -1,134 +1,133 @@
-# 🚗 Autonomous Vehicle Server
+# SLAM Tracking Car
 
-Server điều khiển xe tự lái với Python + MQTT + FastAPI
+ROS2 Humble robot with two operating modes:
+- **Face Tracking**: ESP32-CAM detects faces, robot follows
+- **SLAM + Navigation**: LiDAR (LDS02RR) mapping + autonomous navigation between waypoints
 
-## Cấu trúc thư mục
+## Prerequisites (Host)
 
-```
-autonomous-vehicle-server/
-├── main.py                    # Entry point
-├── requirements.txt
-├── docker-compose.yml
-├── Dockerfile
-├── .env                       # Config (copy từ .env.example)
-│
-├── core/
-│   ├── config.py              # Cấu hình toàn hệ thống
-│   ├── logger.py              # Logging setup
-│   └── vehicle_state.py       # Model trạng thái xe (thread-safe)
-│
-├── mqtt/
-│   └── broker_manager.py      # MQTT pub/sub + routing
-│
-├── autopilot/
-│   └── engine.py              # AI engine: tránh vật cản, waypoint nav
-│
-├── api/
-│   ├── app.py                 # FastAPI routes
-│   └── dashboard.py           # Web dashboard HTML
-│
-├── firmware/
-│   └── esp32_main.py          # MicroPython code cho ESP32
-│
-├── simulator/
-│   └── vehicle_sim.py         # Giả lập xe để test
-│
-├── broker/
-│   └── mosquitto.conf         # Config MQTT broker
-│
-└── logs/                      # Log files
-```
+- **Linux** (Ubuntu, Fedora, Arch, NixOS, etc.)
+- [Podman](https://podman.io/docs/installation) (v2.1.0+)
+- [Distrobox](https://distrobox.it/#installation) (v1.4+)
+- User in `dialout` group (for ESP32 USB flashing):
+  ```bash
+  sudo usermod -aG dialout $USER
+  # Log out and back in
+  ```
 
-# 🤖 Kiến Trúc Luồng Điều Khiển Robot Tự Hành (Navigation Pipeline)
+> **macOS/Windows**: Not supported via Distrobox. Use the Dockerfile directly with `docker run` or `podman run`.
 
-Tài liệu này mô tả luồng dữ liệu (Data Flow) từ lúc nhận tín hiệu cảm biến LiDAR cho đến khi xuất lệnh điều khiển xuống phần cứng ESP32.
-
-## 1. Sơ đồ khối (Architecture Diagram)
-
-```text
-LiDAR scan (mỗi 100ms)
-         │
-         ▼
-┌─────────────────┐
-│  Localizer      │  ICP scan matching → cập nhật Pose (x, y, yaw)
-│  (localizer.py) │  + cập nhật OccupancyGrid (tường/vật cản)
-└────────┬────────┘
-         │ pose hiện tại
-         ▼
-┌─────────────────┐
-│  A* Planner     │  Tìm đường ngắn nhất tránh vật cản
-│  (path_planner) │  trả về list waypoints (mét)
-└────────┬────────┘
-         │ path
-         ▼
-┌─────────────────┐
-│MotionController │  Pure Pursuit + PID → speed% + servo angle
-│(motion_ctrl.py) │  Giảm tốc khi quẹo/gần đích, replan khi bị chặn
-└────────┬────────┘
-         │ lệnh
-         ▼
-    MQTT → ESP32
-
-
-
-## Chạy nhanh
+## Quick Start
 
 ```bash
-# 1. Cài dependencies
-pip install -r requirements.txt
+# 1. Clone
+git clone <repo-url> slam_tracking_car
+cd slam_tracking_car
 
-# 2. Khởi động MQTT broker
-docker-compose up mosquitto -d
+# 2. First-time setup (builds image + creates distrobox + installs deps)
+bash .devcontainer/setup.sh
+distrobox assemble create --file distrobox.ini
+distrobox enter slam-dev
+bash .devcontainer/setup.sh
 
-# 3. Chạy server
-python main.py
-
-# 4. Giả lập xe (terminal khác)
-python simulator/vehicle_sim.py
-
-# 5. Mở dashboard
-open http://localhost:8000/dashboard
-# hoặc API docs
-open http://localhost:8000/docs
+# 3. Daily workflow
+distrobox enter slam-dev
+colcon build
+source install/setup.bash
+ros2 launch slam_car_bringup simulation.launch.py    # Gazebo sim
+ros2 launch slam_car_bringup robot.launch.py          # Real robot
 ```
 
-## Các chế độ lái
+## VS Code
 
-| Mode | Mô tả |
-|------|-------|
-| MANUAL | Điều khiển từ dashboard/API |
-| AUTOPILOT | AI tự lái, tránh vật cản tự động |
-| WAYPOINT | Di chuyển theo danh sách GPS |
-| HYBRID | Tự lái nhưng có thể override thủ công |
-| EMERGENCY_STOP | Dừng khẩn cấp |
+Two ways to connect:
 
-## API chính
+**Option A** — Attach from host:
+1. Start container: `distrobox enter slam-dev` (keep terminal open)
+2. In VS Code: `F1` -> `Dev Containers: Attach to Running Container` -> select `slam-dev`
 
-```
-GET  /vehicles                          # Danh sách xe
-GET  /vehicles/{id}                     # Trạng thái xe
-POST /vehicles/{id}/mode                # Đổi chế độ
-POST /vehicles/{id}/control             # Điều khiển thủ công
-POST /vehicles/{id}/stop                # Dừng khẩn cấp
-POST /vehicles/{id}/waypoints           # Nạp waypoints
-GET  /vehicles/{id}/alerts              # Lịch sử alert
-GET  /dashboard                         # Web UI
+**Option B** — Launch from inside container:
+```bash
+distrobox enter slam-dev
+cd /path/to/slam_tracking_car
+code .
 ```
 
-## MQTT Topics
+Recommended extensions are listed in `.vscode/extensions.json` and will be suggested on first open.
 
-| Topic | QoS | Chiều | Mô tả |
-|-------|-----|-------|-------|
-| vehicles/{id}/gps | 0 | ESP32→Server | GPS data |
-| vehicles/{id}/lidar | 0 | ESP32→Server | LiDAR scan |
-| vehicles/{id}/speed | 0 | ESP32→Server | Tốc độ hiện tại |
-| vehicles/{id}/status | 1 | Both | Online/offline |
-| vehicles/{id}/alerts | 2 | ESP32→Server | Cảnh báo |
-| vehicles/{id}/commands | 2 | Server→ESP32 | Lệnh điều khiển |
+## Project Structure
 
-## ESP32 Setup
+```
+slam_tracking_car/              # Git root = colcon workspace root
+├── src/                        # ROS2 packages
+│   ├── slam_car_bringup/       #   Launch files, config, URDF, worlds
+│   ├── slam_car_perception/    #   Camera bridge, face detection, control
+│   └── slam_car_interfaces/    #   Custom messages and services
+├── firmware/                   # ESP32 PlatformIO projects
+│   ├── src/main.cpp            #   Main board (LiDAR + motors + micro-ROS)
+│   ├── src/cam_main.cpp        #   ESP32-CAM (MJPEG stream + micro-ROS)
+│   └── platformio.ini
+├── legacy/                     # Old Python+MQTT code (reference only)
+├── .devcontainer/
+│   ├── Dockerfile              #   ROS2 Humble image definition
+│   └── setup.sh                #   First-time setup script
+├── distrobox.ini               # Distrobox container definition
+├── docker-compose.yml          # Optional: standalone micro-ROS agent
+├── build/                      # colcon output (gitignored)
+├── install/                    # colcon output (gitignored)
+└── log/                        # colcon output (gitignored)
+```
 
-1. Flash MicroPython lên ESP32
-2. Sửa `firmware/esp32_main.py`: WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER
-3. Upload lên ESP32 bằng Thonny hoặc `mpremote`
-4. Kết nối motor L298N, servo, LiDAR theo pin config trong file
+## Launch Files
+
+| Launch file | Description |
+|---|---|
+| `simulation.launch.py` | Gazebo Fortress + robot + RViz2 |
+| `robot.launch.py` | Real robot: micro-ROS agent + camera bridge |
+| `slam.launch.py` | Robot + SLAM Toolbox (mapping) |
+| `navigation.launch.py` | Robot + Nav2 (autonomous navigation) |
+| `face_tracking.launch.py` | Robot + face detection + follow controller |
+
+## ESP32 Firmware
+
+Flash from inside Distrobox:
+
+```bash
+distrobox enter slam-dev
+cd firmware
+
+# Copy and edit config
+cp include/config.h.example include/config.h
+# Edit config.h: WiFi credentials, micro-ROS agent IP, pin assignments
+
+# Flash main board
+pio run -e esp32_main -t upload
+
+# Flash camera board
+pio run -e esp32_cam -t upload
+```
+
+## Rebuilding
+
+When `Dockerfile` changes:
+```bash
+podman build -t ros2-slam -f .devcontainer/Dockerfile .
+distrobox rm slam-dev
+distrobox assemble create --file distrobox.ini
+distrobox enter slam-dev
+bash .devcontainer/setup.sh
+```
+
+Build artifacts (`build/`, `install/`) persist in the repo directory and survive container rebuilds, so subsequent `colcon build` runs are incremental.
+
+## Key Technologies
+
+- **ROS2 Humble** on Ubuntu 22.04
+- **CycloneDDS** for DDS transport
+- **SLAM Toolbox** (async mapping)
+- **Nav2** (autonomous navigation)
+- **Gazebo Fortress** + ros_gz_bridge (simulation)
+- **micro-ROS** (ESP32 <-> ROS2 bridge via UDP)
+- **PlatformIO** (ESP32 firmware, espressif32 platform)
+- **LDS02RR** LiDAR (via kaiaai/LDS driver)
+- **MediaPipe** (face detection)

@@ -1,0 +1,124 @@
+<?xml version="1.0"?>
+<!--
+  Gazebo Fortress plugins for SLAM Tracking Car
+  Included by robot.urdf.xacro when running in simulation
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="slam_tracking_car_gazebo">
+
+  <!-- ── Gazebo colors ──────────────────────────────────────── -->
+  <gazebo reference="base_link">
+    <material>Gazebo/Blue</material>
+  </gazebo>
+  <gazebo reference="left_wheel">
+    <material>Gazebo/DarkGrey</material>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
+  </gazebo>
+  <gazebo reference="right_wheel">
+    <material>Gazebo/DarkGrey</material>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
+  </gazebo>
+  <gazebo reference="caster_wheel">
+    <material>Gazebo/Grey</material>
+    <mu1>0.0</mu1>
+    <mu2>0.0</mu2>
+  </gazebo>
+  <gazebo reference="laser_link">
+    <material>Gazebo/Red</material>
+  </gazebo>
+  <gazebo reference="camera_link">
+    <material>Gazebo/Green</material>
+  </gazebo>
+
+  <!-- ── Differential drive (Gazebo Fortress / ros_gz) ────── -->
+  <gazebo>
+    <plugin filename="gz-sim-diff-drive-system"
+            name="gz::sim::systems::DiffDrive">
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+      <wheel_separation>0.17</wheel_separation>
+      <wheel_radius>0.033</wheel_radius>
+      <max_linear_acceleration>1.0</max_linear_acceleration>
+      <min_linear_acceleration>-1.0</min_linear_acceleration>
+      <max_angular_acceleration>2.0</max_angular_acceleration>
+      <min_angular_acceleration>-2.0</min_angular_acceleration>
+      <max_linear_velocity>0.3</max_linear_velocity>
+      <max_angular_velocity>1.0</max_angular_velocity>
+      <odom_topic>odom</odom_topic>
+      <tf_topic>tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+      <odom_publish_frequency>50</odom_publish_frequency>
+    </plugin>
+  </gazebo>
+
+  <!-- ── LiDAR sensor (LDS02RR: 360°, 5 Hz, 6m range) ────── -->
+  <gazebo reference="laser_link">
+    <sensor name="lidar" type="gpu_lidar">
+      <always_on>true</always_on>
+      <update_rate>5</update_rate>
+      <visualize>true</visualize>
+      <topic>scan</topic>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.15</min>
+          <max>6.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </lidar>
+    </sensor>
+  </gazebo>
+
+  <!-- ── Camera sensor (ESP32-CAM: 640x480, 10 fps) ────────── -->
+  <gazebo reference="camera_link">
+    <sensor name="camera" type="camera">
+      <always_on>true</always_on>
+      <update_rate>10</update_rate>
+      <visualize>true</visualize>
+      <topic>camera/image_raw</topic>
+      <camera>
+        <horizontal_fov>1.089</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.05</near>
+          <far>8.0</far>
+        </clip>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.007</stddev>
+        </noise>
+      </camera>
+    </sensor>
+  </gazebo>
+
+  <!-- ── Joint state publisher (for wheel TFs in Gazebo) ────── -->
+  <gazebo>
+    <plugin filename="gz-sim-joint-state-publisher-system"
+            name="gz::sim::systems::JointStatePublisher">
+      <joint_name>left_wheel_joint</joint_name>
+      <joint_name>right_wheel_joint</joint_name>
+      <topic>joint_states</topic>
+      <update_rate>50</update_rate>
+    </plugin>
+  </gazebo>
+
+</robot>
