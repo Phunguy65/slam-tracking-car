@@ -17,7 +17,7 @@
 # NOTE: No user creation — Distrobox injects the host user automatically.
 #       Shell env is set via /etc/profile.d/ (applies to all users).
 ###############################################################################
-FROM osrf/ros:humble-desktop
+FROM docker.io/osrf/ros:humble-desktop
 
 ENV DEBIAN_FRONTEND=noninteractive
 
