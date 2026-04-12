@@ -152,9 +152,12 @@ void setup() {
                   WiFi.localIP().toString().c_str(), CAM_STREAM_PORT);
 
     // micro-ROS
+    // Parse AGENT_IP string to IPAddress
+    IPAddress agent_ip;
+    agent_ip.fromString(AGENT_IP);
     set_microros_wifi_transports(
-        WIFI_SSID, WIFI_PASSWORD,
-        AGENT_IP, AGENT_PORT
+        (char*)WIFI_SSID, (char*)WIFI_PASSWORD,
+        agent_ip, AGENT_PORT
     );
 
     allocator = rcl_get_default_allocator();

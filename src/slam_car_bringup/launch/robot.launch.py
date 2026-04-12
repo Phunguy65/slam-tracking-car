@@ -5,6 +5,7 @@ Launches:
   - micro-ROS Agent (WiFi UDP transport)
   - Robot state publisher (URDF → TF)
   - Camera bridge (ESP32-CAM HTTP → /camera/image_raw)
+  - robot_localization EKF (odom + IMU fusion → /odometry/filtered)
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess
@@ -62,6 +63,18 @@ def generate_launch_description():
         parameters=[{"cam_url": LaunchConfiguration("cam_url")}],
     )
 
+    # ── robot_localization EKF (odom + IMU fusion) ───────────
+    ekf_node = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node",
+        output="screen",
+        parameters=[
+            PathJoinSubstitution([pkg_share, "config", "ekf.yaml"]),
+            {"use_sim_time": False},
+        ],
+    )
+
     return LaunchDescription(
         [
             agent_port_arg,
@@ -69,5 +82,6 @@ def generate_launch_description():
             robot_state_publisher,
             micro_ros_agent,
             cam_bridge,
+            ekf_node,
         ]
     )

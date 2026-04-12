@@ -23,6 +23,7 @@
   <exec_depend>slam_toolbox</exec_depend>
   <exec_depend>navigation2</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>robot_localization</exec_depend>
 
   <!-- micro-ROS Agent -->
   <exec_depend>micro_ros_agent</exec_depend>

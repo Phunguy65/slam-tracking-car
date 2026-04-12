@@ -167,7 +167,41 @@
     <origin xyz="0 0 ${chassis_height/2 + lidar_height/2}" rpy="0 0 0"/>
   </joint>
 
-  <!-- ── Camera (ESP32-CAM) ─────────────────────────────────── -->
+  <!-- ── IMU (MPU6050) ─────────────────────────────────────── -->
+  <link name="imu_link"/>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 ${chassis_height/2}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ── Pan-Tilt Camera Mount (ESP32-CAM) ───────────────────── -->
+  <!-- Pan link (rotates around Z axis) -->
+  <link name="pan_link">
+    <visual>
+      <geometry>
+        <cylinder radius="0.01" length="0.02"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 1.0"/>
+      </material>
+    </visual>
+    <inertial>
+      <mass value="0.02"/>
+      <inertia ixx="0.000001" ixy="0" ixz="0" iyy="0.000001" iyz="0" izz="0.000001"/>
+    </inertial>
+  </link>
+
+  <joint name="camera_pan_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="pan_link"/>
+    <origin xyz="${chassis_length/2} 0 ${chassis_height/4}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-pi/2}" upper="${pi/2}" effort="1.0" velocity="2.0"/>
+    <dynamics damping="0.01" friction="0.1"/>
+  </joint>
+
+  <!-- Camera link (rotates around Y axis for tilt) -->
   <link name="camera_link">
     <visual>
       <geometry>
@@ -185,10 +219,13 @@
     <xacro:box_inertia m="${camera_mass}" x="${camera_size}" y="${camera_size}" z="${camera_size}"/>
   </link>
 
-  <joint name="camera_joint" type="fixed">
-    <parent link="base_link"/>
+  <joint name="camera_tilt_joint" type="revolute">
+    <parent link="pan_link"/>
     <child link="camera_link"/>
-    <origin xyz="${chassis_length/2} 0 ${chassis_height/4}" rpy="0 0 0"/>
+    <origin xyz="0 0 0.01" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-pi/2}" upper="${pi/2}" effort="1.0" velocity="2.0"/>
+    <dynamics damping="0.01" friction="0.1"/>
   </joint>
 
   <!-- Camera optical frame (Z forward, X right, Y down — ROS convention) -->
