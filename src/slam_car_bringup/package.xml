@@ -37,6 +37,12 @@
   <!-- Perception (our package) -->
   <exec_depend>slam_car_perception</exec_depend>
 
+  <!-- Navigation management (our package) -->
+  <exec_depend>slam_car_navigation</exec_depend>
+
+  <!-- Custom interfaces -->
+  <exec_depend>slam_car_interfaces</exec_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

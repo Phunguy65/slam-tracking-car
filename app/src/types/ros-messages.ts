@@ -197,3 +197,49 @@ export interface SetParametersResult {
 export interface SetParametersResponse {
     results: SetParametersResult[];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// slam_car_interfaces services (map management)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ListMaps service
+export type ListMapsRequest = Record<string, never>;
+
+export interface ListMapsResponse {
+    maps: string[];
+    success: boolean;
+    message: string;
+}
+
+// LoadMap service
+export interface LoadMapRequest {
+    map_name: string;
+}
+
+export interface LoadMapResponse {
+    success: boolean;
+    message: string;
+}
+
+// SetMode service
+export interface SetModeRequest {
+    mode: number; // RobotMode: 0=IDLE, 1=FACE_TRACKING, 2=SLAM_MAPPING, 3=NAVIGATION, 4=MANUAL
+}
+
+export interface SetModeResponse {
+    success: boolean;
+    message: string;
+    previous_mode: number;
+    current_mode: number;
+}
+
+// RobotMode constants
+export const RobotMode = {
+    IDLE: 0,
+    FACE_TRACKING: 1,
+    SLAM_MAPPING: 2,
+    NAVIGATION: 3,
+    MANUAL: 4,
+} as const;
+
+export type RobotModeType = (typeof RobotMode)[keyof typeof RobotMode];

@@ -1,0 +1,7 @@
+# List available maps in the maps directory
+# Request: (empty)
+---
+# Response
+string[] maps       # List of map names (without extension)
+bool success
+string message      # Error message if success=false

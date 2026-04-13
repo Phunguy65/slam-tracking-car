@@ -8,6 +8,8 @@ find_package(std_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/RobotMode.msg"
   "srv/SetMode.srv"
+  "srv/ListMaps.srv"
+  "srv/LoadMap.srv"
   DEPENDENCIES std_msgs
 )
 

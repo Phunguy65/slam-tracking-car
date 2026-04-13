@@ -1,0 +1,6 @@
+# Load a map by name for navigation
+string map_name     # Map name (without .yaml extension)
+---
+# Response
+bool success
+string message      # Error message if success=false, or confirmation

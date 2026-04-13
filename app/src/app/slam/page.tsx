@@ -3,37 +3,37 @@
  *
  * Features:
  * - Single unified map (Occupancy + LiDAR overlay)
- * - Mode toggle (Mapping / Navigation)
+ * - Mode toggle (Mapping / Navigation) with lifecycle management
  * - Floating glassmorphic control panels
  * - Collapsible panels for clean view
  */
 'use client';
 
 import { Compass, Map as MapIcon, Save } from 'lucide-react';
-import { useState } from 'react';
 import { ExploreToggle } from '@/components/slam/explore-toggle.tsx';
 import { GoalSetter } from '@/components/slam/goal-setter.tsx';
 import { InitialPoseSetter } from '@/components/slam/initial-pose-setter.tsx';
 import { ManualJoystick } from '@/components/slam/manual-joystick.tsx';
 import { MapSelector } from '@/components/slam/map-selector.tsx';
-import { ModeToggle, type SlamMode } from '@/components/slam/mode-toggle.tsx';
+import { ModeToggle } from '@/components/slam/mode-toggle.tsx';
 import { NavigationStatus } from '@/components/slam/navigation-status.tsx';
 import { SaveMapButton } from '@/components/slam/save-map-button.tsx';
 import { UnifiedMap } from '@/components/slam/unified-map.tsx';
 import { HudPanel } from '@/components/ui/hud-panel.tsx';
+import { useModeStore } from '@/stores/mode-store.ts';
 import { useRosStore } from '@/stores/ros-store.ts';
 
 export default function SlamPage() {
-    const [mode, setMode] = useState<SlamMode>('mapping');
     const status = useRosStore((s) => s.status);
     const isConnected = status === 'connected';
+    const currentMode = useModeStore((s) => s.currentMode);
 
     return (
         <div className='flex-1 relative overflow-hidden bg-slate-950'>
             {/* Full-screen unified map */}
             <UnifiedMap showLidar={true} className='absolute inset-0'>
                 {/* GoalSetter overlay - only in navigation mode */}
-                <GoalSetter enabled={mode === 'navigation'} />
+                <GoalSetter enabled={currentMode === 'navigation'} />
             </UnifiedMap>
 
             {/* Floating HUD panels */}
@@ -41,14 +41,10 @@ export default function SlamPage() {
                 {/* Top row: Mode toggle + Explore toggle */}
                 <div className='flex items-start justify-between pointer-events-auto'>
                     {/* Mode toggle - top left */}
-                    <ModeToggle
-                        mode={mode}
-                        onModeChange={setMode}
-                        disabled={!isConnected}
-                    />
+                    <ModeToggle disabled={!isConnected} />
 
                     {/* Explore toggle - top right (only in mapping mode) */}
-                    {mode === 'mapping' && (
+                    {currentMode === 'mapping' && (
                         <HudPanel
                             title='Auto Explore'
                             icon={<Compass className='size-4' />}
@@ -65,7 +61,7 @@ export default function SlamPage() {
                     {/* Left side panels */}
                     <div className='flex flex-col gap-3 pointer-events-auto max-w-xs'>
                         {/* Navigation Status - only in navigation mode */}
-                        {mode === 'navigation' && (
+                        {currentMode === 'navigation' && (
                             <HudPanel
                                 title='Navigation'
                                 icon={<Compass className='size-4' />}
@@ -80,7 +76,7 @@ export default function SlamPage() {
                         )}
 
                         {/* Map Management - only in mapping mode */}
-                        {mode === 'mapping' && (
+                        {currentMode === 'mapping' && (
                             <HudPanel
                                 title='Map Management'
                                 icon={<Save className='size-4' />}
@@ -97,7 +93,7 @@ export default function SlamPage() {
                         )}
 
                         {/* Map Selector - in navigation mode for loading maps */}
-                        {mode === 'navigation' && (
+                        {currentMode === 'navigation' && (
                             <HudPanel
                                 title='Maps'
                                 icon={<MapIcon className='size-4' />}

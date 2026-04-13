@@ -5,10 +5,13 @@ Launches:
   - Robot bringup (micro-ROS agent + robot_state_publisher + cam_bridge)
   - rosbridge_websocket (WebSocket bridge on port 9090)
   - image_transport republisher (raw → compressed JPEG)
-  - m-explore (frontier exploration, conditionally with slam_mode)
+  - map_manager_node (map listing, loading, mode switching)
+  - SLAM Toolbox (mapping mode, always loaded)
+  - Nav2 stack (navigation mode, lifecycle managed — starts inactive)
+  - m-explore (frontier exploration, conditional)
 
-This launch file provides all ROS2 infrastructure needed for the web dashboard
-to communicate with the robot via WebSocket.
+Mode switching is handled dynamically via /map_manager/set_mode service.
+Both SLAM and Nav2 stacks are loaded but only one is active at a time.
 """
 from launch import LaunchDescription
 from launch.actions import (
@@ -19,7 +22,7 @@ from launch.actions import (
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import Node
+from launch_ros.actions import Node, LifecycleNode
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -32,15 +35,15 @@ def generate_launch_description():
         default_value="9090",
         description="rosbridge WebSocket port",
     )
-    slam_mode_arg = DeclareLaunchArgument(
-        "slam_mode",
-        default_value="false",
-        description="Enable SLAM mode (launches slam_toolbox + m-explore)",
-    )
     use_explore_arg = DeclareLaunchArgument(
         "use_explore",
         default_value="true",
         description="Enable m-explore for autonomous frontier exploration",
+    )
+    maps_directory_arg = DeclareLaunchArgument(
+        "maps_directory",
+        default_value=PathJoinSubstitution([pkg_share, "maps"]),
+        description="Directory containing saved maps",
     )
 
     # ── Include robot bringup ────────────────────────────────
@@ -94,21 +97,27 @@ def generate_launch_description():
         ],
     )
 
-    # ── SLAM mode nodes (conditional) ────────────────────────
-    slam_nodes = GroupAction(
-        condition=IfCondition(LaunchConfiguration("slam_mode")),
-        actions=[
-            # SLAM Toolbox
-            Node(
-                package="slam_toolbox",
-                executable="async_slam_toolbox_node",
-                name="slam_toolbox",
-                output="screen",
-                parameters=[
-                    PathJoinSubstitution([pkg_share, "config", "slam_toolbox.yaml"]),
-                    {"use_sim_time": False},
-                ],
-            ),
+    # ── Map Manager Node ─────────────────────────────────────
+    # Provides /map_manager/list_maps, /map_manager/load_map, /map_manager/set_mode
+    map_manager = Node(
+        package="slam_car_navigation",
+        executable="map_manager_node",
+        name="map_manager",
+        output="screen",
+        parameters=[
+            {"maps_directory": LaunchConfiguration("maps_directory")},
+        ],
+    )
+
+    # ── SLAM Toolbox (always running for mapping mode) ───────
+    slam_toolbox = Node(
+        package="slam_toolbox",
+        executable="async_slam_toolbox_node",
+        name="slam_toolbox",
+        output="screen",
+        parameters=[
+            PathJoinSubstitution([pkg_share, "config", "slam_toolbox.yaml"]),
+            {"use_sim_time": False},
         ],
     )
 
@@ -135,15 +144,79 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration("use_explore")),
     )
 
+    # ── Nav2 Lifecycle Nodes (start unconfigured) ────────────
+    # These nodes start in UNCONFIGURED state and are activated
+    # via /map_manager/set_mode service when switching to navigation mode
+    nav2_params = PathJoinSubstitution([pkg_share, "config", "nav2_params.yaml"])
+
+    map_server = LifecycleNode(
+        package="nav2_map_server",
+        executable="map_server",
+        name="map_server",
+        output="screen",
+        parameters=[nav2_params, {"use_sim_time": False, "yaml_filename": ""}],
+        namespace="",
+    )
+
+    amcl = LifecycleNode(
+        package="nav2_amcl",
+        executable="amcl",
+        name="amcl",
+        output="screen",
+        parameters=[nav2_params, {"use_sim_time": False}],
+        namespace="",
+    )
+
+    controller_server = LifecycleNode(
+        package="nav2_controller",
+        executable="controller_server",
+        name="controller_server",
+        output="screen",
+        parameters=[nav2_params, {"use_sim_time": False}],
+        namespace="",
+    )
+
+    planner_server = LifecycleNode(
+        package="nav2_planner",
+        executable="planner_server",
+        name="planner_server",
+        output="screen",
+        parameters=[nav2_params, {"use_sim_time": False}],
+        namespace="",
+    )
+
+    bt_navigator = LifecycleNode(
+        package="nav2_bt_navigator",
+        executable="bt_navigator",
+        name="bt_navigator",
+        output="screen",
+        parameters=[nav2_params, {"use_sim_time": False}],
+        namespace="",
+    )
+
+    # Note: We do NOT include lifecycle_manager here because
+    # map_manager_node handles lifecycle transitions directly.
+    # This gives us fine-grained control over when Nav2 activates.
+
     return LaunchDescription(
         [
+            # Arguments
             rosbridge_port_arg,
-            slam_mode_arg,
             use_explore_arg,
+            maps_directory_arg,
+            # Core infrastructure
             robot_launch,
             rosbridge,
             image_republisher,
-            slam_nodes,
+            map_manager,
+            # SLAM (always active for mapping)
+            slam_toolbox,
             explore_node,
+            # Nav2 (lifecycle managed, starts unconfigured)
+            map_server,
+            amcl,
+            controller_server,
+            planner_server,
+            bt_navigator,
         ]
     )
