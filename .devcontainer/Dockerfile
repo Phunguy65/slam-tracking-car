@@ -92,7 +92,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-plotjuggler-ros \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Layer 8: Shell environment (all users — Distrobox injects host user) ─────
+# ── Layer 8: Web dashboard dependencies ──────────────────────────────────────
+# rosbridge: WebSocket bridge for ROS2 ↔ web communication
+# image_transport_plugins: JPEG compression for camera streaming
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-rosbridge-suite \
+    ros-humble-image-transport-plugins \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Layer 9: m-explore (frontier exploration) ────────────────────────────────
+# Build from source — not available in apt for Humble
+# Pin to known-working commit for stability
+RUN mkdir -p /explore_ws/src && \
+    cd /explore_ws/src && \
+    git clone https://github.com/robo-friends/m-explore-ros2.git && \
+    cd m-explore-ros2 && \
+    git checkout humble && \
+    cd /explore_ws && \
+    . /opt/ros/humble/setup.sh && \
+    colcon build --packages-select explore_lite && \
+    rm -rf /explore_ws/log /explore_ws/build
+
+# ── Layer 10: Shell environment (all users — Distrobox injects host user) ────
 # /etc/profile.d/ runs on every login shell; Distrobox uses login shells.
 RUN printf '#!/bin/bash\n\
 # ROS2 Humble base\n\
@@ -100,6 +121,9 @@ source /opt/ros/humble/setup.bash\n\
 \n\
 # micro-ROS agent workspace (if built from source)\n\
 [ -f /uros_ws/install/setup.bash ] && source /uros_ws/install/setup.bash\n\
+\n\
+# m-explore workspace (frontier exploration)\n\
+[ -f /explore_ws/install/setup.bash ] && source /explore_ws/install/setup.bash\n\
 \n\
 # User workspace overlay (colcon install space)\n\
 # Detect workspace root: walk up from CWD looking for src/ with package.xml\n\

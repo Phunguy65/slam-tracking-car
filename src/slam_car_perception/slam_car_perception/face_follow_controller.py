@@ -6,14 +6,24 @@ and applies PID control to generate velocity commands.
 
 Separated from perception to maintain clean layer boundaries
 and allow command arbitration with Nav2/teleop.
+
+Supports live PID parameter tuning via set_parameters service.
 """
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
+from rcl_interfaces.msg import SetParametersResult
 from geometry_msgs.msg import PoseArray, Twist
 import time
 
 
 class FaceFollowController(Node):
+    # PID parameter names for validation
+    PID_PARAMS = frozenset([
+        "pid_yaw_kp", "pid_yaw_ki", "pid_yaw_kd",
+        "pid_linear_kp", "pid_linear_ki", "pid_linear_kd",
+    ])
+
     def __init__(self):
         super().__init__("face_follow_controller")
 
@@ -49,13 +59,66 @@ class FaceFollowController(Node):
         self.lin_prev_error = 0.0
         self.last_face_time = 0.0
 
+        # Register parameter callback for live PID tuning
+        self.add_on_set_parameters_callback(self._on_parameter_change)
+
         # ROS interfaces
         self.sub = self.create_subscription(
             PoseArray, "/face_detections", self._detection_callback, 10
         )
         self.cmd_pub = self.create_publisher(Twist, "/cmd_vel", 10)
 
-        self.get_logger().info("Face follow controller started")
+        self.get_logger().info("Face follow controller started (live PID tuning enabled)")
+
+    def _on_parameter_change(self, params: list[Parameter]) -> SetParametersResult:
+        """
+        Handle dynamic parameter updates for live PID tuning.
+        
+        Validates that PID gains are non-negative before applying.
+        """
+        # Validate all parameters first (atomic check)
+        for param in params:
+            if param.name in self.PID_PARAMS:
+                if param.value < 0.0:
+                    return SetParametersResult(
+                        successful=False,
+                        reason=f"PID gains must be non-negative: {param.name}={param.value}",
+                    )
+
+        # Apply all parameters (they passed validation)
+        for param in params:
+            if param.name == "pid_yaw_kp":
+                self.yaw_kp = param.value
+                self.get_logger().info(f"Updated pid_yaw_kp = {param.value}")
+            elif param.name == "pid_yaw_ki":
+                self.yaw_ki = param.value
+                self.get_logger().info(f"Updated pid_yaw_ki = {param.value}")
+            elif param.name == "pid_yaw_kd":
+                self.yaw_kd = param.value
+                self.get_logger().info(f"Updated pid_yaw_kd = {param.value}")
+            elif param.name == "pid_linear_kp":
+                self.lin_kp = param.value
+                self.get_logger().info(f"Updated pid_linear_kp = {param.value}")
+            elif param.name == "pid_linear_ki":
+                self.lin_ki = param.value
+                self.get_logger().info(f"Updated pid_linear_ki = {param.value}")
+            elif param.name == "pid_linear_kd":
+                self.lin_kd = param.value
+                self.get_logger().info(f"Updated pid_linear_kd = {param.value}")
+            elif param.name == "max_linear_speed":
+                self.max_linear = param.value
+                self.get_logger().info(f"Updated max_linear_speed = {param.value}")
+            elif param.name == "max_angular_speed":
+                self.max_angular = param.value
+                self.get_logger().info(f"Updated max_angular_speed = {param.value}")
+            elif param.name == "target_face_ratio":
+                self.target_face_ratio = param.value
+                self.get_logger().info(f"Updated target_face_ratio = {param.value}")
+            elif param.name == "lost_timeout":
+                self.lost_timeout = param.value
+                self.get_logger().info(f"Updated lost_timeout = {param.value}")
+
+        return SetParametersResult(successful=True)
 
     def _detection_callback(self, msg: PoseArray):
         cmd = Twist()

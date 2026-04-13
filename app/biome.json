@@ -30,6 +30,9 @@
                 },
                 "noUnusedVariables": "error",
                 "noUnusedImports": "error"
+            },
+            "suspicious": {
+                "noArrayIndexKey": "warn"
             }
         }
     },
