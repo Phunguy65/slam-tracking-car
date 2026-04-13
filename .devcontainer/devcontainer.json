@@ -1,0 +1,89 @@
+{
+	"name": "SLAM Tracking Car",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": ".."
+	},
+	"remoteUser": "vscode",
+	"updateRemoteUserUID": true,
+	"runArgs": [
+		"--net=host",
+		"--device-cgroup-rule=c 188:* rwm",
+		"--device-cgroup-rule=c 166:* rwm",
+		"--cap-add=SYS_PTRACE",
+		"--cap-add=CAP_MKNOD",
+		"--group-add",
+		"video",
+		"--group-add",
+		"dialout",
+		"--security-opt=seccomp=unconfined"
+	],
+	"containerEnv": {
+		"DISPLAY": "${localEnv:DISPLAY}",
+		"WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+		"XDG_RUNTIME_DIR": "/tmp/runtime-vscode",
+		"ROS_DOMAIN_ID": "42",
+		"RMW_IMPLEMENTATION": "rmw_cyclonedds_cpp",
+		"RCUTILS_COLORIZED_OUTPUT": "1"
+	},
+	"mounts": [
+		"source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,readonly"
+	],
+	"postCreateCommand": "mkdir -p /tmp/runtime-vscode && chmod 0700 /tmp/runtime-vscode && bash .devcontainer/setup.sh",
+	"workspaceFolder": "/workspaces/slam-tracking-car",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-iot.vscode-ros",
+				"ms-vscode.cpptools",
+				"ms-python.python",
+				"ms-vscode.cmake-tools",
+				"platformio.platformio-ide",
+				"redhat.vscode-yaml",
+				"smilerobotics.urdf-previewer",
+				"ms-azuretools.vscode-docker"
+			],
+			"settings": {
+				"ros.distro": "humble",
+				"terminal.integrated.defaultProfile.linux": "bash",
+				"terminal.integrated.profiles.linux": {
+					"bash": {
+						"path": "/bin/bash",
+						"args": [
+							"-l"
+						]
+					}
+				},
+				"python.defaultInterpreterPath": "/usr/bin/python3",
+				"C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
+				"editor.formatOnSave": true,
+				"files.associations": {
+					"*.xacro": "xml",
+					"*.urdf": "xml",
+					"*.sdf": "xml",
+					"*.launch.py": "python"
+				},
+				"files.exclude": {
+					"build": true,
+					"install": true,
+					"log": true
+				},
+				"search.exclude": {
+					"build": true,
+					"install": true,
+					"log": true,
+					"legacy": true
+				}
+			}
+		},
+		"zed": {
+			"extensions": [
+				"python",
+				"yaml",
+				"toml",
+				"dockerfile",
+				"cpp"
+			]
+		}
+	}
+}

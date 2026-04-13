@@ -3,6 +3,11 @@
 // SLAM Tracking Car — Shared Configuration
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// ── Math constants (fallback for unit tests without Arduino.h) ─────────────
+#ifndef PI
+#define PI 3.14159265358979323846f
+#endif
+
 // ── WiFi ────────────────────────────────────────────────────────────────────
 #define WIFI_SSID       "YOUR_WIFI_SSID"
 #define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
@@ -54,6 +59,10 @@
 #define LIDAR_RX_PIN     16      // LDS02RR TX → ESP32 RX2
 #define LIDAR_BAUD       115200
 #define LIDAR_MOTOR_PIN  4       // PWM pin for LiDAR motor speed control
+#define SCAN_POINTS      360     // Number of points per 360° scan
+
+// ── Status LED ──────────────────────────────────────────────────────────────
+#define LED_STATUS_PIN   2       // Built-in LED for status indication
 
 // ── Robot geometry (for odometry) ───────────────────────────────────────────
 #define WHEEL_RADIUS     0.033f   // meters (33mm, diameter 66mm)

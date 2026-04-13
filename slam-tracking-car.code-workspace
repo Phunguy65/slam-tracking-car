@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"name": "firmware",
+			"path": "firmware"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"terminal.integrated.defaultProfile.linux": "bash",
+		"files.associations": {
+			"*.xacro": "xml",
+			"*.urdf": "xml",
+			"*.sdf": "xml",
+			"*.launch.py": "python"
+		}
+	}
+}

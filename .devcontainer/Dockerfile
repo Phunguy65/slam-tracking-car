@@ -14,7 +14,8 @@
 # LiDAR: kaiaai/LDS (LDS02RR) via micro-ROS on ESP32
 # FW:    PlatformIO (espressif32@2.0.18, Arduino framework)
 #
-# NOTE: No user creation — Distrobox injects the host user automatically.
+# NOTE: Distrobox ignores the user created below and injects the host user.
+#       DevContainer uses the "vscode" user via remoteUser config.
 #       Shell env is set via /etc/profile.d/ (applies to all users).
 ###############################################################################
 FROM docker.io/osrf/ros:humble-desktop
@@ -120,9 +121,22 @@ export RCUTILS_COLORIZED_OUTPUT=1\n' > /etc/profile.d/ros2-env.sh && \
 RUN mkdir -p /etc/colcon && \
     echo '{"build": {"symlink-install": true}}' > /etc/colcon/defaults.yaml
 
+# ── DevContainer user (ignored by Distrobox, used by VS Code/Zed) ────────────
+# Distrobox injects the host user automatically; this user is only for DevContainer.
+ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME \
+    && usermod -aG dialout $USERNAME
+
 # ── Environment defaults (available in all shells, not just login) ───────────
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ENV ROS_DOMAIN_ID=42
-ENV LIBGL_ALWAYS_SOFTWARE=1
 ENV QT_X11_NO_MITSHM=1
 ENV RCUTILS_COLORIZED_OUTPUT=1
+# Note: LIBGL_ALWAYS_SOFTWARE removed to allow GPU acceleration.
+# For headless/CI environments without GPU, set it via containerEnv.

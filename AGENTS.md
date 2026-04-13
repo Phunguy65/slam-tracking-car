@@ -15,9 +15,44 @@ ROS2 Humble robot with two operating modes:
   # Log out and back in
   ```
 
-> **macOS/Windows**: Not supported via Distrobox. Use the Dockerfile directly with `docker run` or `podman run`.
+> **macOS/Windows**: Not supported via Distrobox. Use DevContainer (VS Code/Zed) or the Dockerfile directly.
 
 ## Quick Start
+
+### Option 1: DevContainer (VS Code / Zed) — Recommended
+
+```bash
+# 1. Clone
+git clone <repo-url> slam_tracking_car
+cd slam_tracking_car
+
+# 2. Open in VS Code or Zed
+#    VS Code: F1 → "Dev Containers: Reopen in Container"
+#    Zed:     "Open in Dev Container" prompt on folder open
+
+# 3. Wait for container build + setup (first time ~10 min)
+#    Subsequent opens are instant.
+
+# 4. Start developing
+colcon build
+source install/setup.bash
+ros2 launch slam_car_bringup simulation.launch.py    # Gazebo sim
+```
+
+**Zed users with Podman**: Add to Zed settings:
+```json
+{
+  "dev_containers": { "use_podman": true }
+}
+```
+Note: Zed does not auto-install extensions from devcontainer.json yet. Install extensions manually.
+
+**GUI apps (RViz2, Gazebo)**: Run on host before opening container:
+```bash
+xhost +local:   # Allow container to access X11 (works with Podman)
+```
+
+### Option 2: Distrobox (Linux terminal workflow)
 
 ```bash
 # 1. Clone
@@ -70,6 +105,7 @@ slam_tracking_car/              # Git root = colcon workspace root
 ├── legacy/                     # Old Python+MQTT code (reference only)
 ├── .devcontainer/
 │   ├── Dockerfile              #   ROS2 Humble image definition
+│   ├── devcontainer.json       #   VS Code + Zed container config
 │   └── setup.sh                #   First-time setup script
 ├── distrobox.ini               # Distrobox container definition
 ├── docker-compose.yml          # Optional: standalone micro-ROS agent
