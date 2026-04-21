@@ -43,7 +43,7 @@ function Slider({
                 {_values.map((_, i) => (
                     <SliderPrimitive.Thumb
                         data-slot='slider-thumb'
-                        // Slider thumbs have stable positions - index is the only identifier available
+                        // biome-ignore lint/suspicious/noArrayIndexKey: Slider thumbs have stable order and no inherent IDs.
                         key={`slider-thumb-${i}`}
                         className='relative block size-3 shrink-0 rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50'
                     />

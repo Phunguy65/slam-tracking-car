@@ -1,6 +1,16 @@
 #pragma once
 // ═══════════════════════════════════════════════════════════════════════════════
 // SLAM Tracking Car — Shared Configuration
+//
+// Most values are loaded from firmware/.env via load_env.py extra script.
+// This file contains:
+//   1. Compile-time validation (#error if required vars missing)
+//   2. Derived constants (LEDC channels, robot geometry, safety timeouts)
+//
+// Setup:
+//   cd firmware
+//   cp .env.example .env
+//   # Edit .env with your WiFi credentials and GPIO pins
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ── Math constants (fallback for unit tests without Arduino.h) ─────────────
@@ -8,76 +18,151 @@
 #define PI 3.14159265358979323846f
 #endif
 
-// ── WiFi ────────────────────────────────────────────────────────────────────
-#define WIFI_SSID       "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPILE-TIME VALIDATION — Required variables from .env
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// ── micro-ROS Agent ─────────────────────────────────────────────────────────
-#define AGENT_IP        "192.168.1.100"    // IP of machine running devcontainer
+// ── WiFi (REQUIRED) ────────────────────────────────────────────────────────────
+#ifndef WIFI_SSID
+#error "WIFI_SSID not defined — check firmware/.env (copy from .env.example)"
+#endif
+
+#ifndef WIFI_PASSWORD
+#error "WIFI_PASSWORD not defined — check firmware/.env"
+#endif
+
+// ── micro-ROS Agent (REQUIRED) ─────────────────────────────────────────────────
+#ifndef AGENT_IP
+#error "AGENT_IP not defined — check firmware/.env"
+#endif
+
 #ifndef AGENT_PORT
-#define AGENT_PORT      8888
+#error "AGENT_PORT not defined — check firmware/.env"
 #endif
 
-// ── Motor pins (TB6612FNG) ─────────────────────────────────────────────────
-// Left motor
-#define MOTOR_LEFT_PWMA  25    // PWM speed control
-#define MOTOR_LEFT_AIN1  26    // Direction pin 1
-#define MOTOR_LEFT_AIN2  27    // Direction pin 2
-// Right motor
-#define MOTOR_RIGHT_PWMB 14    // PWM speed control
-#define MOTOR_RIGHT_BIN1 23    // Direction pin 1
-#define MOTOR_RIGHT_BIN2 13    // Direction pin 2
-// Note: TB6612 STBY pin tied to VCC (always active)
+// ── Motor pins - TB6612FNG (REQUIRED) ──────────────────────────────────────────
+#ifndef MOTOR_LEFT_PWMA
+#error "MOTOR_LEFT_PWMA not defined — check firmware/.env"
+#endif
 
-// ── LEDC PWM Channels ──────────────────────────────────────────────────────
-// Channels 0-2: managed by manual ledcSetup()/ledcAttachPin()
-// Channels 3-4: managed by ESP32Servo — MUST pass to servo.attach(pin, min, max, CH)
-#define LEDC_CH_MOTOR_LEFT   0   // 1 kHz, 8-bit
-#define LEDC_CH_MOTOR_RIGHT  1   // 1 kHz, 8-bit
-#define LEDC_CH_LIDAR_MOTOR  2   // 25 kHz, 8-bit
-#define LEDC_CH_SERVO_PAN    3   // 50 Hz, 16-bit (ESP32Servo)
-#define LEDC_CH_SERVO_TILT   4   // 50 Hz, 16-bit (ESP32Servo)
+#ifndef MOTOR_LEFT_AIN1
+#error "MOTOR_LEFT_AIN1 not defined — check firmware/.env"
+#endif
 
-// ── Encoder pins ────────────────────────────────────────────────────────────
-#define ENCODER_LEFT_PIN   32    // Phase A, hardware interrupt
-#define ENCODER_RIGHT_PIN  33    // Phase A, hardware interrupt
-#define ENCODER_PPR        20    // Pulses per revolution (single-phase)
+#ifndef MOTOR_LEFT_AIN2
+#error "MOTOR_LEFT_AIN2 not defined — check firmware/.env"
+#endif
 
-// ── IMU (MPU6050 via I2C) ──────────────────────────────────────────────────
-#define IMU_SDA_PIN  21          // I2C Data (ESP32 default)
-#define IMU_SCL_PIN  22          // I2C Clock (ESP32 default)
-#define IMU_ADDR     0x68        // MPU6050 default I2C address
+#ifndef MOTOR_RIGHT_PWMB
+#error "MOTOR_RIGHT_PWMB not defined — check firmware/.env"
+#endif
 
-// ── Servo Pan-Tilt ─────────────────────────────────────────────────────────
-#define SERVO_PAN_PIN   18       // Servo 1 — horizontal pan
-#define SERVO_TILT_PIN  19       // Servo 2 — vertical tilt
-#define SERVO_CENTER    90       // Center position (degrees)
+#ifndef MOTOR_RIGHT_BIN1
+#error "MOTOR_RIGHT_BIN1 not defined — check firmware/.env"
+#endif
 
-// ── LiDAR (LDS02RR via UART) ───────────────────────────────────────────────
-#define LIDAR_UART_NUM   2
-#define LIDAR_TX_PIN     17      // Declared for Serial2 init (not physically connected)
-#define LIDAR_RX_PIN     16      // LDS02RR TX → ESP32 RX2
-#define LIDAR_BAUD       115200
-#define LIDAR_MOTOR_PIN  4       // PWM pin for LiDAR motor speed control
-#define SCAN_POINTS      360     // Number of points per 360° scan
+#ifndef MOTOR_RIGHT_BIN2
+#error "MOTOR_RIGHT_BIN2 not defined — check firmware/.env"
+#endif
 
-// ── Status LED ──────────────────────────────────────────────────────────────
-#define LED_STATUS_PIN   2       // Built-in LED for status indication
+// ── Encoder pins (REQUIRED) ────────────────────────────────────────────────────
+#ifndef ENCODER_LEFT_PIN
+#error "ENCODER_LEFT_PIN not defined — check firmware/.env"
+#endif
 
-// ── Robot geometry (for odometry) ───────────────────────────────────────────
-#define WHEEL_RADIUS     0.033f   // meters (33mm, diameter 66mm)
-#define WHEEL_SEPARATION 0.17f    // meters (170mm, center-to-center)
+#ifndef ENCODER_RIGHT_PIN
+#error "ENCODER_RIGHT_PIN not defined — check firmware/.env"
+#endif
 
-// ── Safety ──────────────────────────────────────────────────────────────────
-#define CMD_VEL_TIMEOUT_MS   1000   // ms without cmd_vel → motors stop
-#define LIDAR_TIMEOUT_MS     2000   // ms without LiDAR data → motors stop
-#define IMU_INIT_RETRIES     3      // Number of MPU6050 init attempts
-#define IMU_RETRY_DELAY_MS   500    // Delay between init retries
+#ifndef ENCODER_PPR
+#error "ENCODER_PPR not defined — check firmware/.env"
+#endif
 
-// ── ESP32-CAM specific ──────────────────────────────────────────────────────
+// ── IMU - MPU6050 (REQUIRED) ───────────────────────────────────────────────────
+#ifndef IMU_SDA_PIN
+#error "IMU_SDA_PIN not defined — check firmware/.env"
+#endif
+
+#ifndef IMU_SCL_PIN
+#error "IMU_SCL_PIN not defined — check firmware/.env"
+#endif
+
+#ifndef IMU_ADDR
+#error "IMU_ADDR not defined — check firmware/.env"
+#endif
+
+// ── Servo pan (REQUIRED) ───────────────────────────────────────────────────────
+// Note: Tilt servo removed per design decision (pan-only tracking).
+// SERVO_TILT_PIN may still be defined in .env but is not used.
+#ifndef SERVO_PAN_PIN
+#error "SERVO_PAN_PIN not defined — check firmware/.env"
+#endif
+
+// ── LiDAR - LDS02RR (REQUIRED) ─────────────────────────────────────────────────
+#ifndef LIDAR_RX_PIN
+#error "LIDAR_RX_PIN not defined — check firmware/.env"
+#endif
+
+#ifndef LIDAR_TX_PIN
+#error "LIDAR_TX_PIN not defined — check firmware/.env"
+#endif
+
+#ifndef LIDAR_MOTOR_PIN
+#error "LIDAR_MOTOR_PIN not defined — check firmware/.env"
+#endif
+
+// ── Status LED (REQUIRED) ──────────────────────────────────────────────────────
+#ifndef LED_STATUS_PIN
+#error "LED_STATUS_PIN not defined — check firmware/.env"
+#endif
+
+// ── ESP32-CAM specific (REQUIRED for esp32_cam environments) ──────────────────
 #ifdef BOARD_ESP32_CAM
-#define CAM_STREAM_PORT  80
-#define CAM_FRAME_SIZE   FRAMESIZE_QVGA   // 320x240 (safe for PSRAM)
-#define CAM_JPEG_QUALITY 12               // 0-63, lower = better quality
-#define CAM_FB_COUNT     2                // Double buffering
+
+#ifndef CAM_STREAM_PORT
+#error "CAM_STREAM_PORT not defined — check firmware/.env"
 #endif
+
+#ifndef CAM_FRAME_SIZE
+#error "CAM_FRAME_SIZE not defined — check firmware/.env"
+#endif
+
+#ifndef CAM_JPEG_QUALITY
+#error "CAM_JPEG_QUALITY not defined — check firmware/.env"
+#endif
+
+// Camera frame buffer count (not in .env — hardware constant)
+#define CAM_FB_COUNT 2
+
+#endif  // BOARD_ESP32_CAM
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DERIVED CONSTANTS — Computed from .env values or hardware constraints
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── LEDC PWM Channels ──────────────────────────────────────────────────────────
+// Channels 0-2: managed by manual ledcSetup()/ledcAttachPin()
+// Channel 3: managed by ESP32Servo — MUST pass to servo.attach(pin, min, max, CH)
+// Note: Tilt servo (channel 4) removed per design decision
+#define LEDC_CH_MOTOR_LEFT 0   // 1 kHz, 8-bit
+#define LEDC_CH_MOTOR_RIGHT 1  // 1 kHz, 8-bit
+#define LEDC_CH_LIDAR_MOTOR 2  // 25 kHz, 8-bit
+#define LEDC_CH_SERVO_PAN 3    // 50 Hz, 16-bit (ESP32Servo)
+
+// ── LiDAR constants ────────────────────────────────────────────────────────────
+#define LIDAR_UART_NUM 2
+#define LIDAR_BAUD 115200
+#define SCAN_POINTS 360  // Number of points per 360° scan
+
+// ── Servo constants ────────────────────────────────────────────────────────────
+#define SERVO_CENTER 90  // Center position (degrees)
+
+// ── Robot geometry (for odometry) ──────────────────────────────────────────────
+#define WHEEL_RADIUS 0.033f     // meters (33mm, diameter 66mm)
+#define WHEEL_SEPARATION 0.17f  // meters (170mm, center-to-center)
+
+// ── Safety timeouts ────────────────────────────────────────────────────────────
+#define CMD_VEL_TIMEOUT_MS 1000  // ms without cmd_vel → motors stop
+#define LIDAR_TIMEOUT_MS 2000    // ms without LiDAR data → motors stop
+#define IMU_INIT_RETRIES 3       // Number of MPU6050 init attempts
+#define IMU_RETRY_DELAY_MS 500   // Delay between init retries

@@ -58,6 +58,27 @@ RUN pip3 install --no-cache-dir \
     mediapipe \
     requests
 
+# ── Layer 3b: Person tracking (YOLOv8 + InsightFace) ─────────────────────────
+# ultralytics: YOLOv8 for body/face detection
+# insightface: Face recognition and embedding extraction
+# onnxruntime: CPU inference backend for InsightFace
+#
+# IMPORTANT: Pin numpy<2 IN THE SAME COMMAND.
+# InsightFace wheels are compiled against NumPy 1.x C-API.
+# NumPy 2.0 changed the ABI (dtype size 96 vs 88), causing:
+#   "ValueError: numpy.dtype size changed, may indicate binary incompatibility"
+RUN pip3 install --no-cache-dir \
+    "numpy<2" \
+    ultralytics \
+    insightface \
+    onnxruntime \
+    && pip3 uninstall -y opencv-python opencv-python-headless opencv-contrib-python
+
+# Pre-download models to avoid runtime delays on first use
+# YOLOv8n is ~6MB, InsightFace buffalo_l is ~500MB
+RUN python3 -c "from ultralytics import YOLO; YOLO('yolov8n.pt')" && \
+    python3 -c "from insightface.app import FaceAnalysis; app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider']); app.prepare(ctx_id=-1)"
+
 # ── Layer 4: Gazebo Fortress + ROS bridge ────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-ros-gz \
@@ -106,11 +127,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /explore_ws/src && \
     cd /explore_ws/src && \
     git clone https://github.com/robo-friends/m-explore-ros2.git && \
-    cd m-explore-ros2 && \
-    git checkout humble && \
     cd /explore_ws && \
     . /opt/ros/humble/setup.sh && \
-    colcon build --packages-select explore_lite && \
+    colcon build --packages-up-to explore_lite && \
     rm -rf /explore_ws/log /explore_ws/build
 
 # ── Layer 10: Shell environment (all users — Distrobox injects host user) ────
@@ -156,6 +175,11 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && usermod -aG dialout $USERNAME
+
+# Create .slam_car directory for face database (for vscode user in DevContainer)
+# Distrobox users will have this created on first run via enrollment_node
+RUN mkdir -p /home/$USERNAME/.slam_car && \
+    chown $USERNAME:$USERNAME /home/$USERNAME/.slam_car
 
 # ── Environment defaults (available in all shells, not just login) ───────────
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp

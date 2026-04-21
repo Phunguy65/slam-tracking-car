@@ -1,33 +1,44 @@
 /**
  * IMU module for MPU6050.
+ *
+ * Raw sensor readings are converted into SI units (m/s^2 for linear
+ * acceleration, rad/s for angular velocity) using the MPU6050 default
+ * sensitivities: ±2g range → 16384 LSB/g, ±250°/s range → 131 LSB/(°/s).
  */
 
 #ifndef UNIT_TEST
 #include <Arduino.h>
-#include <Wire.h>
 #include <MPU6050.h>
+#include <Wire.h>
 #endif
 
-#include "imu.h"
-#include "config.h"
-
 #include <math.h>
+
+#include "config.h"
+#include "imu.h"
+#include "logger.h"
 
 // ── IMU instance ────────────────────────────────────────────────────────────
 #ifndef UNIT_TEST
 static MPU6050 mpu;
 #endif
 
-// ── IMU state ───────────────────────────────────────────────────────────────
+// ── IMU state (SI units: m/s^2, rad/s) ──────────────────────────────────────
 static bool imu_enabled_flag = false;
 
-// Converted values (m/s^2 and rad/s)
 static float accel_x = 0.0f;
 static float accel_y = 0.0f;
 static float accel_z = 0.0f;
 static float gyro_x = 0.0f;
 static float gyro_y = 0.0f;
 static float gyro_z = 0.0f;
+
+#ifndef UNIT_TEST
+static const float ACCEL_LSB_PER_G = 16384.0f;
+static const float GRAVITY_MS2 = 9.81f;
+static const float GYRO_LSB_PER_DEG_PER_S = 131.0f;
+static const float DEG_PER_S_TO_RAD_PER_S = (float)PI / 180.0f;
+#endif
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -39,21 +50,19 @@ void imu_init() {
         mpu.initialize();
         if (mpu.testConnection()) {
             imu_enabled_flag = true;
-            Serial.printf("[IMU] MPU6050 initialized (attempt %d)\n", attempt + 1);
+            ros_logf("IMU", "MPU6050 initialized (attempt %d)", attempt + 1);
             return;
         }
-        Serial.printf("[IMU] Init failed, attempt %d/%d\n", attempt + 1, IMU_INIT_RETRIES);
+        ros_logf("IMU", "Init failed, attempt %d/%d", attempt + 1, IMU_INIT_RETRIES);
         delay(IMU_RETRY_DELAY_MS);
     }
 
     imu_enabled_flag = false;
-    Serial.println("[IMU] WARNING: MPU6050 disabled after all retries failed");
+    ros_log("IMU", "WARNING: MPU6050 disabled after all retries failed");
 #endif
 }
 
-bool imu_is_enabled() {
-    return imu_enabled_flag;
-}
+bool imu_is_enabled() { return imu_enabled_flag; }
 
 void imu_read() {
     if (!imu_enabled_flag) return;
@@ -62,38 +71,24 @@ void imu_read() {
     int16_t ax, ay, az, gx, gy, gz;
     mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
-    // Convert raw accelerometer to m/s^2 (default ±2g range, 16384 LSB/g)
-    accel_x = (float)ax / 16384.0f * 9.81f;
-    accel_y = (float)ay / 16384.0f * 9.81f;
-    accel_z = (float)az / 16384.0f * 9.81f;
+    accel_x = (float)ax / ACCEL_LSB_PER_G * GRAVITY_MS2;
+    accel_y = (float)ay / ACCEL_LSB_PER_G * GRAVITY_MS2;
+    accel_z = (float)az / ACCEL_LSB_PER_G * GRAVITY_MS2;
 
-    // Convert raw gyroscope to rad/s (default ±250°/s range, 131 LSB/°/s)
-    gyro_x = (float)gx / 131.0f * (PI / 180.0f);
-    gyro_y = (float)gy / 131.0f * (PI / 180.0f);
-    gyro_z = (float)gz / 131.0f * (PI / 180.0f);
+    gyro_x = (float)gx / GYRO_LSB_PER_DEG_PER_S * DEG_PER_S_TO_RAD_PER_S;
+    gyro_y = (float)gy / GYRO_LSB_PER_DEG_PER_S * DEG_PER_S_TO_RAD_PER_S;
+    gyro_z = (float)gz / GYRO_LSB_PER_DEG_PER_S * DEG_PER_S_TO_RAD_PER_S;
 #endif
 }
 
-float imu_get_accel_x() {
-    return accel_x;
-}
+float imu_get_accel_x() { return accel_x; }
 
-float imu_get_accel_y() {
-    return accel_y;
-}
+float imu_get_accel_y() { return accel_y; }
 
-float imu_get_accel_z() {
-    return accel_z;
-}
+float imu_get_accel_z() { return accel_z; }
 
-float imu_get_gyro_x() {
-    return gyro_x;
-}
+float imu_get_gyro_x() { return gyro_x; }
 
-float imu_get_gyro_y() {
-    return gyro_y;
-}
+float imu_get_gyro_y() { return gyro_y; }
 
-float imu_get_gyro_z() {
-    return gyro_z;
-}
+float imu_get_gyro_z() { return gyro_z; }

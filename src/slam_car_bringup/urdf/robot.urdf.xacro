@@ -175,8 +175,9 @@
     <origin xyz="0 0 ${chassis_height/2}" rpy="0 0 0"/>
   </joint>
 
-  <!-- ── Pan-Tilt Camera Mount (ESP32-CAM) ───────────────────── -->
+  <!-- ── Pan Camera Mount (ESP32-CAM) ─────────────────────────── -->
   <!-- Pan link (rotates around Z axis) -->
+  <!-- Note: Tilt servo removed per design decision (pan-only tracking) -->
   <link name="pan_link">
     <visual>
       <geometry>
@@ -201,7 +202,7 @@
     <dynamics damping="0.01" friction="0.1"/>
   </joint>
 
-  <!-- Camera link (rotates around Y axis for tilt) -->
+  <!-- Camera link (attached directly to pan link — no tilt) -->
   <link name="camera_link">
     <visual>
       <geometry>
@@ -219,13 +220,10 @@
     <xacro:box_inertia m="${camera_mass}" x="${camera_size}" y="${camera_size}" z="${camera_size}"/>
   </link>
 
-  <joint name="camera_tilt_joint" type="revolute">
+  <joint name="camera_mount_joint" type="fixed">
     <parent link="pan_link"/>
     <child link="camera_link"/>
     <origin xyz="0 0 0.01" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
-    <limit lower="${-pi/2}" upper="${pi/2}" effort="1.0" velocity="2.0"/>
-    <dynamics damping="0.01" friction="0.1"/>
   </joint>
 
   <!-- Camera optical frame (Z forward, X right, Y down — ROS convention) -->

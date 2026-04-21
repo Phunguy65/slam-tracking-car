@@ -1,0 +1,5 @@
+# Set the active tracking target
+string person_id              # UUID of person to track (empty to clear/track any)
+---
+bool success                  # True if target was set
+string error_message          # Error description if success=false

@@ -1,5 +1,5 @@
 /**
- * Mode selector tabs for switching between Tracking and SLAM modes.
+ * Mode selector tabs for switching between Dashboard and legacy modes.
  */
 'use client';
 
@@ -8,8 +8,29 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils.ts';
 
 const modes = [
-    { name: 'Tracking', href: '/tracking', description: 'Face following mode' },
-    { name: 'SLAM', href: '/slam', description: 'Mapping & Navigation' },
+    {
+        name: 'Dashboard',
+        href: '/dashboard',
+        description: 'Unified operator workspace',
+    },
+    {
+        name: 'Tracking',
+        href: '/tracking',
+        description: 'Person tracking mode (legacy)',
+        deprecated: true,
+    },
+    {
+        name: 'Enrollment',
+        href: '/enrollment',
+        description: 'Enroll persons to track (legacy)',
+        deprecated: true,
+    },
+    {
+        name: 'SLAM',
+        href: '/slam',
+        description: 'Mapping & Navigation (legacy)',
+        deprecated: true,
+    },
 ] as const;
 
 export function ModeSelector() {
@@ -28,6 +49,9 @@ export function ModeSelector() {
                             isActive
                                 ? 'bg-background text-foreground shadow-sm'
                                 : 'text-muted-foreground hover:text-foreground',
+                            'deprecated' in mode
+                                && mode.deprecated
+                                && 'opacity-60',
                         )}
                         title={mode.description}
                     >

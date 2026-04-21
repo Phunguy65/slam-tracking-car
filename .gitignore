@@ -30,9 +30,10 @@ firmware/.vscode/
 # ── Environment / Secrets ───────────────────────────────────────────────────
 .env
 *.env
+*.env.*
+!.env.example
+!firmware/.env.example
 credentials.json
-firmware/include/config.h
-!firmware/include/config.h.example
 
 # ── OS ──────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -41,3 +42,6 @@ Thumbs.db
 # ── Logs ────────────────────────────────────────────────────────────────────
 logs/
 *.log
+
+# ── Lefthook ────────────────────────────────────────────────────────────────
+.lefthook-local.yml

@@ -1,0 +1,56 @@
+# Person tracking configuration
+# Used by enrollment_node, person_tracker_node, and tracking_controller_node
+
+# ─── Enrollment Node ─────────────────────────────────────────────────────────
+enrollment_node:
+  ros__parameters:
+    db_path: "~/.slam_car/face_db.sqlite"
+    embedding_threshold: 0.6
+    scan_frames: 10  # Number of frames to average for embedding
+
+# ─── Person Tracker Node ─────────────────────────────────────────────────────
+person_tracker_node:
+  ros__parameters:
+    db_path: "~/.slam_car/face_db.sqlite"
+    embedding_threshold: 0.6
+    image_topic: "/camera/image_raw"
+    body_confidence_threshold: 0.5
+    confidence_decay_rate: 0.1  # Per second without face confirmation
+
+# ─── Tracking Controller Node ────────────────────────────────────────────────
+tracking_controller_node:
+  ros__parameters:
+    # Servo PID (fast, fine adjustment at 50Hz)
+    pid_servo_kp: 2.0
+    pid_servo_ki: 0.0
+    pid_servo_kd: 0.1
+
+    # Wheel yaw PID (slow, coarse adjustment at 10Hz)
+    pid_wheel_yaw_kp: 0.5
+    pid_wheel_yaw_ki: 0.0
+    pid_wheel_yaw_kd: 0.05
+
+    # Linear PID (forward/backward control)
+    pid_linear_kp: 0.3
+    pid_linear_ki: 0.0
+    pid_linear_kd: 0.05
+
+    # Control limits
+    max_servo_angle: 1.57         # ±90° in radians
+    servo_handoff_threshold: 0.52 # ±30° in radians (wheel takes over)
+    max_linear_speed: 0.3         # m/s
+    max_angular_speed: 1.0        # rad/s
+
+    # Target distance control (based on body bbox width)
+    target_body_width_min: 0.20   # Move forward if smaller
+    target_body_width_max: 0.30   # Move backward if larger
+    body_width_too_far: 0.15      # Definitely too far
+    body_width_too_close: 0.35    # Definitely too close
+
+    # Search behavior timing (seconds)
+    search_continue_duration: 0.5 # Continue last direction
+    search_scan_duration: 2.0     # Servo scan left-right
+    search_rotate_duration: 5.0   # Robot rotates 360°
+
+    # Target lost timeout
+    lost_timeout: 0.5

@@ -2,14 +2,16 @@
 #define SERVOS_H_
 
 /**
- * Servo module for pan-tilt camera mount.
- * 
+ * Servo module for pan camera mount.
+ *
  * Uses ESP32Servo library for LEDC PWM control.
  * Position convention: 0 radians = 90 degrees (center).
+ *
+ * Note: Tilt servo removed per design decision (pan-only tracking).
  */
 
 /**
- * Initialize servo pins and center both axes.
+ * Initialize servo pin and center the axis.
  */
 void servos_init();
 
@@ -20,19 +22,8 @@ void servos_init();
 void servos_set_pan(float radians);
 
 /**
- * Set tilt (vertical) servo position.
- * @param radians Position in radians (0 = center, negative = down, positive = up)
- */
-void servos_set_tilt(float radians);
-
-/**
  * Get current pan position in radians.
  */
 float servos_get_pan();
 
-/**
- * Get current tilt position in radians.
- */
-float servos_get_tilt();
-
-#endif // SERVOS_H_
+#endif  // SERVOS_H_

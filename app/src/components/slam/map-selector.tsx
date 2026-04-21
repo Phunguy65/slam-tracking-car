@@ -126,7 +126,8 @@ export function MapSelector() {
             )}
             {currentMap && !error && (
                 <p className='text-xs text-muted-foreground'>
-                    Current map: <span className='font-medium'>{currentMap}</span>
+                    Current map:{' '}
+                    <span className='font-medium'>{currentMap}</span>
                 </p>
             )}
             {!currentMap && !error && (

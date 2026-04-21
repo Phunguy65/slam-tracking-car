@@ -13,16 +13,16 @@ Launches:
 Mode switching is handled dynamically via /map_manager/set_mode service.
 Both SLAM and Nav2 stacks are loaded but only one is active at a time.
 """
+
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
-    GroupAction,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import Node, LifecycleNode
+from launch_ros.actions import LifecycleNode, Node
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -66,7 +66,7 @@ def generate_launch_description():
                 "address": "0.0.0.0",
                 "retry_startup_delay": 5.0,
                 "fragment_timeout": 600,
-                "delay_between_messages": 0,
+                "delay_between_messages": 0.0,
                 "max_message_size": 10000000,  # 10MB for images
                 "unregister_timeout": 10.0,
             }

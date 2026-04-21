@@ -7,12 +7,12 @@ as sensor_msgs/Image on ROS2 topic.
 Uses a ROS2 timer instead of a background thread to avoid concurrency
 issues with rclpy spin.
 """
+
+import cv2
 import rclpy
+from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
-import cv2
-import numpy as np
 
 
 class CamBridgeNode(Node):
@@ -20,7 +20,7 @@ class CamBridgeNode(Node):
         super().__init__("cam_bridge_node")
 
         # Parameters
-        self.declare_parameter("cam_url", "http://192.168.1.100:80/stream")
+        self.declare_parameter("cam_url", "http://192.168.1.248:80/stream")
         self.declare_parameter("frame_id", "camera_optical_frame")
         self.declare_parameter("fps", 10)
 
@@ -40,7 +40,9 @@ class CamBridgeNode(Node):
         timer_period = 1.0 / self.fps
         self.timer = self.create_timer(timer_period, self._capture_frame)
 
-        self.get_logger().info(f"Camera bridge started: {self.cam_url} @ {self.fps} FPS")
+        self.get_logger().info(
+            f"Camera bridge started: {self.cam_url} @ {self.fps} FPS"
+        )
 
     def _connect(self):
         """Open or reopen the MJPEG stream via OpenCV."""

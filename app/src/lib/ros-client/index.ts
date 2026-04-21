@@ -14,4 +14,5 @@ export {
     getRos,
     isConnected,
     publish,
+    reconnect,
 } from './real-client.ts';

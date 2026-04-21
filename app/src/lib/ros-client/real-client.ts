@@ -86,6 +86,24 @@ export function disconnect(): void {
 }
 
 /**
+ * Force an immediate reconnection attempt.
+ */
+export function reconnect(): void {
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+
+    const { url } = useRosStore.getState();
+
+    if (rosInstance) {
+        rosInstance.close();
+    }
+
+    connect(url);
+}
+
+/**
  * Schedule a reconnection attempt.
  */
 function scheduleReconnect(): void {

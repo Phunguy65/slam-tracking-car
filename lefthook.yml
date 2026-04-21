@@ -1,0 +1,20 @@
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "app/**/*.{ts,tsx,js,jsx}"
+      run: cd app && npx biome check --fix --staged {staged_files}
+    ruff-format:
+      glob: "src/**/*.py"
+      run: ruff format {staged_files}
+    ruff-check:
+      glob: "src/**/*.py"
+      run: ruff check --fix {staged_files}
+    clang-format:
+      glob: "firmware/**/*.{cpp,hpp,h,c}"
+      run: clang-format -i {staged_files}
+
+commit-msg:
+  commands:
+    commitlint:
+      run: cd app && npx commitlint --edit ../{1}

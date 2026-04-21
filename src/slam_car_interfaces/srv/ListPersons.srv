@@ -1,0 +1,3 @@
+# List all enrolled persons
+---
+slam_car_interfaces/EnrolledPerson[] persons  # Array of enrolled persons

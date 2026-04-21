@@ -66,7 +66,7 @@ function getLoadMapService() {
     return loadMapService;
 }
 
-export const useMapStore = create<MapStore>((set, get) => ({
+export const useMapStore = create<MapStore>((set, _get) => ({
     availableMaps: [],
     currentMap: null,
     isFetchingList: false,

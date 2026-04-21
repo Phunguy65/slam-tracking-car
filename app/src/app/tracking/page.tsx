@@ -1,12 +1,12 @@
 /**
  * Tracking mode page.
  *
- * Displays camera stream with face detection overlay and controls.
+ * Displays camera stream with person detection overlay and controls.
  */
 'use client';
 
 import { CameraStream } from '@/components/tracking/camera-stream.tsx';
-import { FaceOverlay } from '@/components/tracking/face-overlay.tsx';
+import { PersonOverlay } from '@/components/tracking/person-overlay.tsx';
 import { PidTuner } from '@/components/tracking/pid-tuner.tsx';
 import { TrackingControls } from '@/components/tracking/tracking-controls.tsx';
 import { TrackingStatus } from '@/components/tracking/tracking-status.tsx';
@@ -24,7 +24,7 @@ export default function TrackingPage() {
             <Card className='overflow-hidden'>
                 <CardContent className='p-0 relative aspect-video bg-black'>
                     <CameraStream />
-                    <FaceOverlay />
+                    <PersonOverlay />
                 </CardContent>
             </Card>
 

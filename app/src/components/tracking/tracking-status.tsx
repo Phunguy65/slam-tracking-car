@@ -1,76 +1,94 @@
 /**
- * Tracking status component showing detection info.
+ * Tracking status component showing detection and target info.
+ *
+ * Subscribes to /tracked_persons for current tracking state.
  */
 'use client';
 
 import { useCallback, useState } from 'react';
 import { useTopic } from '@/hooks/use-topic.ts';
-import type { PoseArray } from '@/types/ros-messages.ts';
+import type { TrackedPerson, TrackedPersonArray } from '@/types/enrollment.ts';
 
 export function TrackingStatus() {
-    const [faceCount, setFaceCount] = useState(0);
-    const [primaryFace, setPrimaryFace] = useState<{
-        x: number;
-        y: number;
-        size: number;
-    } | null>(null);
+    const [personCount, setPersonCount] = useState(0);
+    const [target, setTarget] = useState<TrackedPerson | null>(null);
 
-    const handleDetections = useCallback((msg: PoseArray) => {
-        setFaceCount(msg.poses.length);
+    const handleTrackedPersons = useCallback((msg: TrackedPersonArray) => {
+        setPersonCount(msg.persons.length);
 
-        if (msg.poses.length > 0) {
-            // Find the largest face (primary target)
-            const largest = msg.poses.reduce((best, pose) =>
-                pose.position.z > best.position.z ? pose : best,
-            );
-            setPrimaryFace({
-                x: largest.position.x,
-                y: largest.position.y,
-                size: largest.position.z,
-            });
-        } else {
-            setPrimaryFace(null);
-        }
+        // Find target person
+        const targetPerson = msg.persons.find((p) => p.is_target);
+        setTarget(targetPerson || null);
     }, []);
 
-    useTopic<PoseArray>(
-        '/face_detections',
-        'geometry_msgs/PoseArray',
-        handleDetections,
+    useTopic<TrackedPersonArray>(
+        '/tracked_persons',
+        'slam_car_interfaces/msg/TrackedPersonArray',
+        handleTrackedPersons,
     );
 
     return (
         <div className='space-y-2 text-sm'>
             <div className='flex justify-between'>
-                <span className='text-muted-foreground'>Faces Detected</span>
-                <span className='font-data font-medium'>{faceCount}</span>
+                <span className='text-muted-foreground'>Persons Detected</span>
+                <span className='font-data font-medium'>{personCount}</span>
             </div>
 
-            {primaryFace && (
+            {target && (
                 <>
+                    <div className='flex justify-between'>
+                        <span className='text-muted-foreground'>Target</span>
+                        <span className='font-data font-medium'>
+                            {target.person_id
+                                ? target.person_id.slice(0, 8)
+                                : 'Unknown'}
+                        </span>
+                    </div>
+                    <div className='flex justify-between'>
+                        <span className='text-muted-foreground'>
+                            Confidence
+                        </span>
+                        <span className='font-data font-medium'>
+                            {target.confidence > 0
+                                ? `${Math.round(target.confidence * 100)}%`
+                                : 'N/A'}
+                        </span>
+                    </div>
                     <div className='flex justify-between'>
                         <span className='text-muted-foreground'>
                             Target Position
                         </span>
                         <span className='font-data font-medium'>
-                            ({(primaryFace.x * 100).toFixed(0)}%,{' '}
-                            {(primaryFace.y * 100).toFixed(0)}%)
+                            ({(target.body_bbox.center_x * 100).toFixed(0)}%,{' '}
+                            {(target.body_bbox.center_y * 100).toFixed(0)}%)
+                        </span>
+                    </div>
+                    <div className='flex justify-between'>
+                        <span className='text-muted-foreground'>Body Size</span>
+                        <span className='font-data font-medium'>
+                            {(target.body_bbox.width * 100).toFixed(1)}%
                         </span>
                     </div>
                     <div className='flex justify-between'>
                         <span className='text-muted-foreground'>
-                            Target Size
+                            Face Visible
                         </span>
                         <span className='font-data font-medium'>
-                            {(primaryFace.size * 100).toFixed(1)}%
+                            {target.face_visible ? 'Yes' : 'No'}
                         </span>
                     </div>
                 </>
             )}
 
-            {!primaryFace && (
+            {!target && personCount === 0 && (
                 <div className='text-center text-muted-foreground py-2'>
-                    No faces detected
+                    No persons detected
+                </div>
+            )}
+
+            {!target && personCount > 0 && (
+                <div className='text-center text-muted-foreground py-2'>
+                    Target not in frame
                 </div>
             )}
         </div>

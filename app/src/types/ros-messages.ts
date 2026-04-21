@@ -92,6 +92,25 @@ export interface LaserScan {
     intensities: number[];
 }
 
+export interface BatteryState {
+    header: Header;
+    voltage: number;
+    temperature: number;
+    current: number;
+    charge: number;
+    capacity: number;
+    design_capacity: number;
+    percentage: number;
+    power_supply_status: number;
+    power_supply_health: number;
+    power_supply_technology: number;
+    present: boolean;
+    cell_voltage: number[];
+    cell_temperature: number[];
+    location: string;
+    serial_number: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // nav_msgs
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,6 +127,18 @@ export interface OccupancyGrid {
     header: Header;
     info: MapMetaData;
     data: number[]; // int8[] - 0-100 occupancy, -1 unknown
+}
+
+export interface Odometry {
+    header: Header;
+    child_frame_id: string;
+    pose: PoseWithCovariance;
+    twist: TwistWithCovariance;
+}
+
+export interface TwistWithCovariance {
+    twist: Twist;
+    covariance: number[]; // float64[36]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -132,15 +132,30 @@ Flash from inside Distrobox:
 distrobox enter slam-dev
 cd firmware
 
-# Copy and edit config
-cp include/config.h.example include/config.h
-# Edit config.h: WiFi credentials, micro-ROS agent IP, pin assignments
+# Copy and edit environment config
+cp .env.example .env
+# Edit .env: WiFi credentials, micro-ROS agent IP, GPIO pin assignments
 
-# Flash main board
+# Flash main board (uses .env by default)
 pio run -e esp32_main -t upload
 
 # Flash camera board
 pio run -e esp32_cam -t upload
+```
+
+### Multi-Environment Support
+
+Create separate env files for different locations:
+
+```bash
+cp .env .env.home    # Home WiFi config
+cp .env .env.lab     # Lab WiFi config
+
+# Build for specific environment
+pio run -e esp32_main_home -t upload
+pio run -e esp32_main_lab -t upload
+pio run -e esp32_cam_home -t upload
+pio run -e esp32_cam_lab -t upload
 ```
 
 ## Rebuilding

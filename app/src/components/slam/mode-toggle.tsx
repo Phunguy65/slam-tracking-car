@@ -9,7 +9,7 @@
 import { Loader2, Map as MapIcon, Navigation, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils.ts';
-import { useModeStore, type SlamMode } from '@/stores/mode-store.ts';
+import { type SlamMode, useModeStore } from '@/stores/mode-store.ts';
 
 interface ModeToggleProps {
     /** Whether toggle is disabled (e.g., not connected) */

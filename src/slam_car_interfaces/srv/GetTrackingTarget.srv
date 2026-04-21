@@ -1,0 +1,4 @@
+# Get the current tracking target
+---
+string person_id              # UUID of current target (empty if none)
+string person_name            # Name of current target (empty if none)

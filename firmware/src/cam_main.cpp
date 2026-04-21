@@ -12,29 +12,34 @@
 #include <esp_camera.h>
 #include <micro_ros_platformio.h>
 #include <rcl/rcl.h>
-#include <rclc/rclc.h>
+#include <rcl_interfaces/msg/log.h>
 #include <rclc/executor.h>
+#include <rclc/rclc.h>
 #include <std_msgs/msg/int32.h>
 
 #include "config.h"
+#include "logger.h"
 
 // ── ESP32-CAM AI-Thinker pin definitions ────────────────────────────────────
-#define PWDN_GPIO_NUM    32
-#define RESET_GPIO_NUM   -1
-#define XCLK_GPIO_NUM     0
-#define SIOD_GPIO_NUM    26
-#define SIOC_GPIO_NUM    27
-#define Y9_GPIO_NUM      35
-#define Y8_GPIO_NUM      34
-#define Y7_GPIO_NUM      39
-#define Y6_GPIO_NUM      36
-#define Y5_GPIO_NUM      21
-#define Y4_GPIO_NUM      19
-#define Y3_GPIO_NUM      18
-#define Y2_GPIO_NUM       5
-#define VSYNC_GPIO_NUM   25
-#define HREF_GPIO_NUM    23
-#define PCLK_GPIO_NUM    22
+#define PWDN_GPIO_NUM 32
+#define RESET_GPIO_NUM -1
+#define XCLK_GPIO_NUM 0
+#define SIOD_GPIO_NUM 26
+#define SIOC_GPIO_NUM 27
+#define Y9_GPIO_NUM 35
+#define Y8_GPIO_NUM 34
+#define Y7_GPIO_NUM 39
+#define Y6_GPIO_NUM 36
+#define Y5_GPIO_NUM 21
+#define Y4_GPIO_NUM 19
+#define Y3_GPIO_NUM 18
+#define Y2_GPIO_NUM 5
+#define VSYNC_GPIO_NUM 25
+#define HREF_GPIO_NUM 23
+#define PCLK_GPIO_NUM 22
+
+// ── Frame rate limit for the MJPEG stream ──────────────────────────────────
+static const uint32_t STREAM_FRAME_INTERVAL_MS = 100;
 
 // ── WiFi HTTP server ────────────────────────────────────────────────────────
 WiFiServer server(CAM_STREAM_PORT);
@@ -45,6 +50,7 @@ rclc_support_t support;
 rcl_node_t node;
 rclc_executor_t executor;
 rcl_publisher_t rssi_publisher;
+rcl_publisher_t log_publisher;
 std_msgs__msg__Int32 rssi_msg;
 rcl_timer_t timer;
 
@@ -84,22 +90,22 @@ bool init_camera() {
 
     esp_err_t err = esp_camera_init(&config);
     if (err != ESP_OK) {
-        Serial.printf("Camera init failed: 0x%x\n", err);
+        ros_logf("CAM", "Camera init failed: 0x%x", err);
         return false;
     }
     return true;
 }
 
 // ── MJPEG stream handler ────────────────────────────────────────────────────
-void handle_stream(WiFiClient &client) {
+void handle_stream(WiFiClient& client) {
     String response = "HTTP/1.1 200 OK\r\n";
     response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
     client.print(response);
 
     while (client.connected()) {
-        camera_fb_t *fb = esp_camera_fb_get();
+        camera_fb_t* fb = esp_camera_fb_get();
         if (!fb) {
-            Serial.println("Camera capture failed");
+            ros_log("CAM", "Camera capture failed");
             break;
         }
 
@@ -112,13 +118,12 @@ void handle_stream(WiFiClient &client) {
 
         esp_camera_fb_return(fb);
 
-        // Limit frame rate
-        delay(100);  // ~10 FPS
+        delay(STREAM_FRAME_INTERVAL_MS);
     }
 }
 
 // ── micro-ROS timer callback (publish WiFi RSSI) ───────────────────────────
-void timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
+void timer_callback(rcl_timer_t* timer, int64_t last_call_time) {
     (void)last_call_time;
     if (timer == NULL) return;
 
@@ -126,70 +131,82 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
     rcl_publish(&rssi_publisher, &rssi_msg, NULL);
 }
 
+#define RCCHECK(fn)                    \
+    {                                  \
+        rcl_ret_t temp_rc = fn;        \
+        if ((temp_rc != RCL_RET_OK)) { \
+            error_loop();              \
+        }                              \
+    }
+
+void error_loop() {
+    while (1) {
+        delay(100);
+    }
+}
+
 // ── Setup ───────────────────────────────────────────────────────────────────
 void setup() {
     Serial.begin(115200);
     delay(1000);
 
-    // Camera
     if (!init_camera()) {
-        Serial.println("Camera init failed, restarting...");
+        ros_log("CAM", "Camera init failed, restarting...");
         ESP.restart();
     }
-    Serial.println("Camera initialized");
+    ros_log("CAM", "Camera initialized");
 
-    // WiFi
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
     }
-    Serial.printf("\nWiFi connected: %s\n", WiFi.localIP().toString().c_str());
+    ros_logf("CAM", "WiFi connected: %s", WiFi.localIP().toString().c_str());
 
-    // HTTP server for MJPEG
     server.begin();
-    Serial.printf("MJPEG stream: http://%s:%d/stream\n",
-                  WiFi.localIP().toString().c_str(), CAM_STREAM_PORT);
+    ros_logf("CAM", "MJPEG stream: http://%s:%d/stream", WiFi.localIP().toString().c_str(),
+             CAM_STREAM_PORT);
 
-    // micro-ROS
-    // Parse AGENT_IP string to IPAddress
     IPAddress agent_ip;
     agent_ip.fromString(AGENT_IP);
-    set_microros_wifi_transports(
-        (char*)WIFI_SSID, (char*)WIFI_PASSWORD,
-        agent_ip, AGENT_PORT
-    );
+    set_microros_wifi_transports((char*)WIFI_SSID, (char*)WIFI_PASSWORD, agent_ip, AGENT_PORT);
 
     allocator = rcl_get_default_allocator();
-    rclc_support_init(&support, 0, NULL, &allocator);
-    rclc_node_init_default(&node, "slam_car_cam", "", &support);
 
-    // RSSI publisher (telemetry)
-    rclc_publisher_init_default(
-        &rssi_publisher, &node,
-        ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
-        "cam/wifi_rssi"
-    );
+    while (rmw_uros_ping_agent(1000, 1) != RCL_RET_OK) {
+        ros_log("CAM", "Waiting for micro-ROS agent...");
+        delay(500);
+    }
 
-    // Timer (1 Hz telemetry)
-    rclc_timer_init_default(&timer, &support, RCL_MS_TO_NS(1000), timer_callback);
+    RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
+
+    RCCHECK(rclc_node_init_default(&node, "slam_car_cam", "", &support));
+
+    RCCHECK(rclc_publisher_init_default(&rssi_publisher, &node,
+                                        ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
+                                        "cam/wifi_rssi"));
+
+    rcl_ret_t log_ret = rclc_publisher_init_best_effort(
+        &log_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(rcl_interfaces, msg, Log), "rosout");
+    if (log_ret == RCL_RET_OK) {
+        logger_set_publisher(&log_publisher);
+    }
+
+    RCCHECK(rclc_timer_init_default(&timer, &support, RCL_MS_TO_NS(1000), timer_callback));
 
     rclc_executor_init(&executor, &support.context, 1, &allocator);
     rclc_executor_add_timer(&executor, &timer);
 
-    Serial.println("[SLAM Car CAM] micro-ROS node started");
+    ros_log("SLAM Car CAM", "micro-ROS node started");
 }
 
-// ── Loop ────────────────────────────────────────────────────────────────────
 void loop() {
-    // Handle MJPEG stream clients
     WiFiClient client = server.available();
     if (client) {
-        Serial.println("Stream client connected");
+        ros_log("CAM", "Stream client connected");
         handle_stream(client);
-        Serial.println("Stream client disconnected");
+        ros_log("CAM", "Stream client disconnected");
     }
 
-    // Spin micro-ROS
     rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
 }
