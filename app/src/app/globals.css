@@ -145,6 +145,19 @@
     }
 }
 
+/* rc-joystick theme overrides */
+.manual-joystick-base.react-joystick {
+    background: rgba(30, 35, 50, 0.8) !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.manual-joystick-controller.react-joystick-controller {
+    background: hsl(var(--primary)) !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
 /* Data display elements use mono font */
 .font-data {
     font-family: var(--font-mono);

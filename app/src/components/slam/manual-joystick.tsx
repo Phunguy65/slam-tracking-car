@@ -6,26 +6,20 @@
  */
 'use client';
 
-import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
-import { Joystick } from 'react-joystick-component';
+import type { IJoystickChangeValue } from 'rc-joystick';
+import Joystick from 'rc-joystick';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePublisher } from '@/hooks/use-topic.ts';
 import { cn } from '@/lib/utils.ts';
 import { useRosStore } from '@/stores/ros-store.ts';
 import type { Twist } from '@/types/ros-messages.ts';
 
-// Speed limits
-const MAX_LINEAR = 0.3; // m/s
-const MAX_ANGULAR = 1.0; // rad/s
+const MAX_LINEAR = 0.3;
+const MAX_ANGULAR = 1.0;
 
-// Joystick size (upgraded from 150px)
-const JOYSTICK_SIZE = 180;
-
-interface JoystickEvent {
-    type: 'move' | 'stop' | 'start';
-    x: number | null;
-    y: number | null;
-    direction: string | null;
-}
+const JOYSTICK_BASE_RADIUS = 90;
+const JOYSTICK_CONTROLLER_RADIUS = 35;
+const JOYSTICK_OUTER_RADIUS = JOYSTICK_BASE_RADIUS - JOYSTICK_CONTROLLER_RADIUS;
 
 interface ManualJoystickProps {
     /** Whether to show label */
@@ -38,7 +32,7 @@ export function ManualJoystick({
     showLabel = true,
     className,
 }: ManualJoystickProps) {
-    const containerRef: RefObject<HTMLDivElement | null> = useRef(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const status = useRosStore((s) => s.status);
     const publishCmdVel = usePublisher<Twist>(
         '/cmd_vel',
@@ -53,14 +47,12 @@ export function ManualJoystick({
     });
     const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set());
 
-    // Cleanup interval on unmount to prevent robot continuing to move
     useEffect(() => {
         return () => {
             if (publishIntervalRef.current) {
                 clearInterval(publishIntervalRef.current);
                 publishIntervalRef.current = null;
             }
-            // Send zero velocity on unmount
             publishCmdVel({
                 linear: { x: 0, y: 0, z: 0 },
                 angular: { x: 0, y: 0, z: 0 },
@@ -68,22 +60,36 @@ export function ManualJoystick({
         };
     }, [publishCmdVel]);
 
-    const handleMove = useCallback(
-        (event: JoystickEvent) => {
-            if (event.x === null || event.y === null) return;
+    const handleStop = useCallback(() => {
+        if (publishIntervalRef.current) {
+            clearInterval(publishIntervalRef.current);
+            publishIntervalRef.current = null;
+        }
 
-            // Convert joystick position to velocity
-            // Joystick y is forward/backward, x is left/right rotation
-            // Scale factor adjusted for new size (90 is half of 180)
-            const linear_x = (event.y / 90) * MAX_LINEAR;
-            const angular_z = -(event.x / 90) * MAX_ANGULAR;
+        const zeroVelocity: Twist = {
+            linear: { x: 0, y: 0, z: 0 },
+            angular: { x: 0, y: 0, z: 0 },
+        };
+        lastVelocityRef.current = zeroVelocity;
+        publishCmdVel(zeroVelocity);
+    }, [publishCmdVel]);
+
+    const handleChange = useCallback(
+        (event: IJoystickChangeValue) => {
+            if (event.angle === undefined || event.distance === 0) return;
+
+            const angleRad = (event.angle * Math.PI) / 180;
+            const normalized = event.distance / JOYSTICK_OUTER_RADIUS;
+            const clampedNorm = Math.min(normalized, 1);
+
+            const linear_x = Math.sin(angleRad) * clampedNorm * MAX_LINEAR;
+            const angular_z = -Math.cos(angleRad) * clampedNorm * MAX_ANGULAR;
 
             lastVelocityRef.current = {
                 linear: { x: linear_x, y: 0, z: 0 },
                 angular: { x: 0, y: 0, z: angular_z },
             };
 
-            // Start publishing at 10 Hz if not already
             if (!publishIntervalRef.current) {
                 publishIntervalRef.current = setInterval(() => {
                     publishCmdVel(lastVelocityRef.current);
@@ -93,23 +99,15 @@ export function ManualJoystick({
         [publishCmdVel],
     );
 
-    const handleStop = useCallback(() => {
-        // Stop publishing interval
-        if (publishIntervalRef.current) {
-            clearInterval(publishIntervalRef.current);
-            publishIntervalRef.current = null;
-        }
+    const handleActiveChange = useCallback(
+        (active: boolean) => {
+            if (!active) {
+                handleStop();
+            }
+        },
+        [handleStop],
+    );
 
-        // Send zero velocity
-        const zeroVelocity: Twist = {
-            linear: { x: 0, y: 0, z: 0 },
-            angular: { x: 0, y: 0, z: 0 },
-        };
-        lastVelocityRef.current = zeroVelocity;
-        publishCmdVel(zeroVelocity);
-    }, [publishCmdVel]);
-
-    // Keyboard control support
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
         if (!arrowKeys.includes(e.key)) return;
@@ -130,7 +128,6 @@ export function ManualJoystick({
         });
     }, []);
 
-    // Process active keys into velocity
     useEffect(() => {
         if (status !== 'connected') return;
 
@@ -139,17 +136,25 @@ export function ManualJoystick({
             return;
         }
 
-        let x = 0;
-        let y = 0;
+        let linear_x = 0;
+        let angular_z = 0;
 
-        // Scale for new joystick size
-        if (activeKeys.has('ArrowUp')) y = 90;
-        if (activeKeys.has('ArrowDown')) y = -90;
-        if (activeKeys.has('ArrowLeft')) x = -90;
-        if (activeKeys.has('ArrowRight')) x = 90;
+        if (activeKeys.has('ArrowUp')) linear_x += MAX_LINEAR;
+        if (activeKeys.has('ArrowDown')) linear_x -= MAX_LINEAR;
+        if (activeKeys.has('ArrowLeft')) angular_z += MAX_ANGULAR;
+        if (activeKeys.has('ArrowRight')) angular_z -= MAX_ANGULAR;
 
-        handleMove({ type: 'move', x, y, direction: null });
-    }, [activeKeys, status, handleMove, handleStop]);
+        lastVelocityRef.current = {
+            linear: { x: linear_x, y: 0, z: 0 },
+            angular: { x: 0, y: 0, z: angular_z },
+        };
+
+        if (!publishIntervalRef.current) {
+            publishIntervalRef.current = setInterval(() => {
+                publishCmdVel(lastVelocityRef.current);
+            }, 100);
+        }
+    }, [activeKeys, status, handleStop, publishCmdVel]);
 
     const isDisabled = status !== 'connected';
 
@@ -170,12 +175,12 @@ export function ManualJoystick({
             )}
             onKeyDown={handleKeyDown}
             onKeyUp={handleKeyUp}
-            onPointerDown={(e) => {
-                const joystickBase = containerRef.current?.querySelector('[data-testid="joystick-base"]');
-                if (joystickBase?.contains(e.target as Node)) return;
+            onPointerDown={() => {
                 focusContainer();
             }}
-            onBlur={() => {
+            onBlur={(e) => {
+                if (containerRef.current?.contains(e.relatedTarget as Node))
+                    return;
                 setActiveKeys(new Set());
                 handleStop();
             }}
@@ -184,12 +189,15 @@ export function ManualJoystick({
             aria-label='Manual robot control. Use arrow keys or drag joystick to drive.'
         >
             <Joystick
-                size={JOYSTICK_SIZE}
-                baseColor='rgba(30, 35, 50, 0.8)'
-                stickColor='hsl(var(--primary))'
-                move={handleMove}
-                stop={handleStop}
+                baseRadius={JOYSTICK_BASE_RADIUS}
+                controllerRadius={JOYSTICK_CONTROLLER_RADIUS}
+                onChange={handleChange}
+                onActiveChange={handleActiveChange}
                 throttle={100}
+                disabled={isDisabled}
+                autoReset
+                className='manual-joystick-base'
+                controllerClassName='manual-joystick-controller'
             />
             {showLabel && (
                 <p className='text-xs text-muted-foreground text-center'>

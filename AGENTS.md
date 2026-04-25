@@ -1,6 +1,7 @@
 # SLAM Tracking Car
 
 ROS2 Humble robot with two operating modes:
+
 - **Face Tracking**: ESP32-CAM detects faces, robot follows
 - **SLAM + Navigation**: LiDAR (LDS02RR) mapping + autonomous navigation between waypoints
 
@@ -40,14 +41,17 @@ ros2 launch slam_car_bringup simulation.launch.py    # Gazebo sim
 ```
 
 **Zed users with Podman**: Add to Zed settings:
+
 ```json
 {
   "dev_containers": { "use_podman": true }
 }
 ```
+
 Note: Zed does not auto-install extensions from devcontainer.json yet. Install extensions manually.
 
 **GUI apps (RViz2, Gazebo)**: Run on host before opening container:
+
 ```bash
 xhost +local:   # Allow container to access X11 (works with Podman)
 ```
@@ -78,10 +82,12 @@ ros2 launch slam_car_bringup robot.launch.py          # Real robot
 Two ways to connect:
 
 **Option A** — Attach from host:
+
 1. Start container: `distrobox enter slam-dev` (keep terminal open)
 2. In VS Code: `F1` -> `Dev Containers: Attach to Running Container` -> select `slam-dev`
 
 **Option B** — Launch from inside container:
+
 ```bash
 distrobox enter slam-dev
 cd /path/to/slam_tracking_car
@@ -116,13 +122,13 @@ slam_tracking_car/              # Git root = colcon workspace root
 
 ## Launch Files
 
-| Launch file | Description |
-|---|---|
-| `simulation.launch.py` | Gazebo Fortress + robot + RViz2 |
-| `robot.launch.py` | Real robot: micro-ROS agent + camera bridge |
-| `slam.launch.py` | Robot + SLAM Toolbox (mapping) |
-| `navigation.launch.py` | Robot + Nav2 (autonomous navigation) |
-| `face_tracking.launch.py` | Robot + face detection + follow controller |
+| Launch file               | Description                                 |
+| ------------------------- | ------------------------------------------- |
+| `simulation.launch.py`    | Gazebo Fortress + robot + RViz2             |
+| `robot.launch.py`         | Real robot: micro-ROS agent + camera bridge |
+| `slam.launch.py`          | Robot + SLAM Toolbox (mapping)              |
+| `navigation.launch.py`    | Robot + Nav2 (autonomous navigation)        |
+| `face_tracking.launch.py` | Robot + face detection + follow controller  |
 
 ## ESP32 Firmware
 
@@ -161,6 +167,7 @@ pio run -e esp32_cam_lab -t upload
 ## Rebuilding
 
 When `Dockerfile` changes:
+
 ```bash
 podman build -t ros2-slam -f .devcontainer/Dockerfile .
 distrobox rm slam-dev
