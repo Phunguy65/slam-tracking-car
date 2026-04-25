@@ -6,7 +6,7 @@
  */
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { Joystick } from 'react-joystick-component';
 import { usePublisher } from '@/hooks/use-topic.ts';
 import { cn } from '@/lib/utils.ts';
@@ -38,6 +38,7 @@ export function ManualJoystick({
     showLabel = true,
     className,
 }: ManualJoystickProps) {
+    const containerRef: RefObject<HTMLDivElement | null> = useRef(null);
     const status = useRosStore((s) => s.status);
     const publishCmdVel = usePublisher<Twist>(
         '/cmd_vel',
@@ -152,8 +153,13 @@ export function ManualJoystick({
 
     const isDisabled = status !== 'connected';
 
+    const focusContainer = useCallback(() => {
+        containerRef.current?.focus({ preventScroll: true });
+    }, []);
+
     return (
         <div
+            ref={containerRef}
             className={cn(
                 'flex flex-col items-center gap-2',
                 'p-3 rounded-xl',
@@ -164,6 +170,11 @@ export function ManualJoystick({
             )}
             onKeyDown={handleKeyDown}
             onKeyUp={handleKeyUp}
+            onPointerDown={(e) => {
+                const joystickBase = containerRef.current?.querySelector('[data-testid="joystick-base"]');
+                if (joystickBase?.contains(e.target as Node)) return;
+                focusContainer();
+            }}
             onBlur={() => {
                 setActiveKeys(new Set());
                 handleStop();

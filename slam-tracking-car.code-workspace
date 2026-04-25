@@ -9,7 +9,7 @@
 		}
 	],
 	"settings": {
-		"terminal.integrated.defaultProfile.linux": "bash",
+		"terminal.integrated.defaultProfile.linux": "zsh",
 		"files.associations": {
 			"*.xacro": "xml",
 			"*.urdf": "xml",

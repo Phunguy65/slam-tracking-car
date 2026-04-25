@@ -5,7 +5,6 @@
 
 import { ConnectionStatus } from '@/components/ros/connection-status.tsx';
 import { EmergencyStop } from '@/components/ros/emergency-stop.tsx';
-import { ModeSelector } from './mode-selector.tsx';
 
 export function Header() {
     return (
@@ -22,9 +21,6 @@ export function Header() {
                         SLAM Car
                     </span>
                 </div>
-
-                {/* Mode Tabs */}
-                <ModeSelector />
 
                 {/* Spacer */}
                 <div className='flex-1' />

@@ -206,24 +206,24 @@ static void setup_micro_ros() {
     }
 
     // ── Publishers ──
-    ret = rclc_publisher_init_default(
+    ret = rclc_publisher_init_best_effort(
         &scan_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, LaserScan), "scan");
     if (ret != RCL_RET_OK)
         ros_logf("micro-ROS", "WARNING: scan publisher init failed (err=%d)", (int)ret);
 
-    ret = rclc_publisher_init_default(&odom_publisher, &node,
-                                      ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Odometry), "odom");
+    ret = rclc_publisher_init_best_effort(
+        &odom_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(nav_msgs, msg, Odometry), "odom");
     if (ret != RCL_RET_OK)
         ros_logf("micro-ROS", "WARNING: odom publisher init failed (err=%d)", (int)ret);
 
-    ret = rclc_publisher_init_default(
+    ret = rclc_publisher_init_best_effort(
         &imu_publisher, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, Imu), "imu/data_raw");
     if (ret != RCL_RET_OK)
         ros_logf("micro-ROS", "WARNING: imu publisher init failed (err=%d)", (int)ret);
 
-    ret = rclc_publisher_init_default(&joint_states_publisher, &node,
-                                      ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState),
-                                      "joint_states");
+    ret = rclc_publisher_init_best_effort(&joint_states_publisher, &node,
+                                          ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState),
+                                          "joint_states");
     if (ret != RCL_RET_OK)
         ros_logf("micro-ROS", "WARNING: joint_states publisher init failed (err=%d)", (int)ret);
 
