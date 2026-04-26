@@ -203,6 +203,25 @@ export interface SaveMapResponse {
 // rcl_interfaces for parameter setting
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** rcl_interfaces/Log — published on /rosout by micro-ROS nodes. */
+export interface Log {
+    level: number;
+    name: string;
+    msg: string;
+    stamp: { sec: number; nanosec: number };
+}
+
+/** Log level constants matching rcl_interfaces/Log level values. */
+export const LogLevel = {
+    DEBUG: 10,
+    INFO: 20,
+    WARN: 30,
+    ERROR: 40,
+    FATAL: 50,
+} as const;
+
+export type LogLevelType = (typeof LogLevel)[keyof typeof LogLevel];
+
 export interface ParameterValue {
     type: number; // 1=bool, 2=int, 3=double, 4=string, 5=byte_array, 6=bool_array, 7=int_array, 8=double_array, 9=string_array
     bool_value?: boolean;

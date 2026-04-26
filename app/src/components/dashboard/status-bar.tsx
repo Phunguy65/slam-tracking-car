@@ -5,7 +5,7 @@
  */
 'use client';
 
-import { AlertCircle, Battery, Signal, Timer, X } from 'lucide-react';
+import { AlertCircle, Battery, Signal, Terminal, Timer, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTopic } from '@/hooks/use-topic.ts';
 import { cn } from '@/lib/utils.ts';
@@ -13,7 +13,12 @@ import { useDashboardStore } from '@/stores/dashboard-store.ts';
 import { useRosStore } from '@/stores/ros-store.ts';
 import type { BatteryState, Odometry } from '@/types/ros-messages.ts';
 
-export function StatusBar() {
+interface StatusBarProps {
+    logOpen: boolean;
+    onToggleLog: () => void;
+}
+
+export function StatusBar({ logOpen, onToggleLog }: StatusBarProps) {
     const status = useRosStore((s) => s.status);
     const rosError = useDashboardStore((s) => s.rosError);
     const clearRosError = useDashboardStore((s) => s.clearRosError);
@@ -126,11 +131,29 @@ export function StatusBar() {
                 </div>
             )}
 
-            <div className='text-xs text-muted-foreground'>
-                <kbd className='px-1 py-0.5 rounded bg-muted font-mono'>
-                    Space
-                </kbd>
-                {' E-Stop'}
+            <div className='flex items-center gap-3 text-xs text-muted-foreground'>
+                <button
+                    type='button'
+                    onClick={onToggleLog}
+                    className={cn(
+                        'flex items-center gap-1 px-2 py-0.5 rounded transition-colors',
+                        logOpen
+                            ? 'bg-muted text-foreground'
+                            : 'hover:bg-muted hover:text-foreground',
+                    )}
+                    aria-label='Toggle log monitor'
+                    aria-pressed={logOpen}
+                >
+                    <Terminal className='size-3.5' />
+                    <span>Log</span>
+                </button>
+
+                <div>
+                    <kbd className='px-1 py-0.5 rounded bg-muted font-mono'>
+                        Space
+                    </kbd>
+                    {' E-Stop'}
+                </div>
             </div>
         </div>
     );

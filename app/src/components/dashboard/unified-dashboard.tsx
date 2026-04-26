@@ -6,6 +6,7 @@
  */
 'use client';
 
+import { useState } from 'react';
 import { ManualJoystick } from '@/components/slam/manual-joystick.tsx';
 import { MinimapOverlay } from '@/components/viewport/minimap-overlay.tsx';
 import { PictureInPicture } from '@/components/viewport/picture-in-picture.tsx';
@@ -13,6 +14,7 @@ import { PrimaryViewport } from '@/components/viewport/primary-viewport.tsx';
 import { useDashboardStore } from '@/stores/dashboard-store.ts';
 import { useRosStore } from '@/stores/ros-store.ts';
 import { DashboardKeyboardHandler } from './dashboard-keyboard-handler.tsx';
+import { LogMonitor } from './log-monitor.tsx';
 import { ModeController } from './mode-controller.tsx';
 import { ReconnectOverlay } from './reconnect-overlay.tsx';
 import { SlamPanels } from './slam-panels.tsx';
@@ -28,6 +30,8 @@ export function UnifiedDashboard() {
     const minimapEnabled = useDashboardStore((s) => s.minimapEnabled);
     const autoExplore = useDashboardStore((s) => s.autoExplore);
     const manualOverride = useDashboardStore((s) => s.manualOverride);
+
+    const [logOpen, setLogOpen] = useState(false);
 
     const isSlam = primaryMode === 'slam';
     const isTracking = primaryMode === 'tracking';
@@ -70,7 +74,12 @@ export function UnifiedDashboard() {
                     </div>
                 </div>
 
-                <StatusBar />
+                <LogMonitor open={logOpen} />
+
+                <StatusBar
+                    logOpen={logOpen}
+                    onToggleLog={() => setLogOpen((prev) => !prev)}
+                />
 
                 <ReconnectOverlay />
             </div>

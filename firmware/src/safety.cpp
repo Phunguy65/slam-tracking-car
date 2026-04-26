@@ -5,8 +5,8 @@
  *   - cmd_vel watchdog: if no /cmd_vel has arrived within CMD_VEL_TIMEOUT_MS,
  *     motors are stopped (once, latched until the next cmd_vel resets it).
  *   - LiDAR data watchdog: if no LiDAR sample has arrived within
- *     LIDAR_TIMEOUT_MS, motors are stopped and the LiDAR is marked inactive
- *     so that motion is disallowed until data resumes.
+ *     LIDAR_TIMEOUT_MS, LiDAR is marked inactive to pause scan publishing.
+ *     Motors are NOT stopped by the LiDAR watchdog.
  */
 
 #ifndef UNIT_TEST
@@ -44,9 +44,8 @@ void safety_check() {
     }
 
     if (lidar_is_active() && (now - lidar_get_last_data_time()) > LIDAR_TIMEOUT_MS) {
-        motors_stop();
         lidar_set_active(false);
-        ros_log("SAFETY", "LiDAR data timeout — motors stopped");
+        ros_log("SAFETY", "LiDAR data timeout — scan publishing paused");
     }
 #endif
 }
@@ -58,4 +57,4 @@ void safety_notify_cmd_vel() {
     motors_stopped_by_watchdog = false;
 }
 
-bool safety_is_motion_allowed() { return lidar_is_active(); }
+bool safety_is_motion_allowed() { return !motors_stopped_by_watchdog; }

@@ -283,6 +283,15 @@ static void cmd_vel_callback(const void* msg_in) {
     const geometry_msgs__msg__Twist* msg = (const geometry_msgs__msg__Twist*)msg_in;
     safety_notify_cmd_vel();
 
+#ifndef UNIT_TEST
+    static unsigned long last_log_ms = 0;
+    unsigned long now_ms = millis();
+    if (now_ms - last_log_ms >= 1000) {
+        ros_logf("cmd_vel", "lin=%.2f ang=%.2f", msg->linear.x, msg->angular.z);
+        last_log_ms = now_ms;
+    }
+#endif
+
     if (safety_is_motion_allowed()) {
         motors_apply_cmd_vel(msg->linear.x, msg->angular.z);
     }
@@ -301,6 +310,7 @@ static void servo_cmd_callback(const void* msg_in) {
         float rad = (float)msg->position.data[i];
 
         if (strcmp(name, "camera_pan_joint") == 0) {
+            ros_logf("servo_cmd", "pan=%.2f rad", rad);
             servos_set_pan(rad);
         }
     }
@@ -351,6 +361,18 @@ static void fast_timer_callback(rcl_timer_t* timer, int64_t last_call_time) {
     joint_states_msg.header.stamp = odom_msg.header.stamp;
     joint_positions_data[0] = (double)servos_get_pan();
     rcl_publish(&joint_states_publisher, &joint_states_msg, NULL);
+
+    static unsigned long last_fast_log_ms = 0;
+    unsigned long now_ms = millis();
+    if (now_ms - last_fast_log_ms >= 1000) {
+        ros_logf("odom", "x=%.3f y=%.3f theta=%.3f lin=%.3f", encoders_get_x(), encoders_get_y(),
+                 encoders_get_theta(), encoders_get_linear_vel());
+        if (imu_is_enabled()) {
+            ros_log("imu", "IMU data published");
+        }
+        ros_logf("joint_states", "pan=%.3f rad", (float)joint_positions_data[0]);
+        last_fast_log_ms = now_ms;
+    }
 }
 
 // ── Scan timer callback (5 Hz) — LaserScan ─────────────────────────────────
@@ -365,6 +387,13 @@ static void scan_timer_callback(rcl_timer_t* timer, int64_t last_call_time) {
         memcpy(scan_ranges_data, lidar_get_ranges(), sizeof(float) * SCAN_POINTS);
         rcl_publish(&scan_publisher, &scan_msg, NULL);
         lidar_clear_scan_ready();
+
+        static unsigned long last_scan_log_ms = 0;
+        unsigned long now_ms = millis();
+        if (now_ms - last_scan_log_ms >= 1000) {
+            ros_log("scan", "LaserScan published");
+            last_scan_log_ms = now_ms;
+        }
     }
 }
 #endif

@@ -63,17 +63,14 @@ void motors_stop() {
 }
 
 void motors_apply_cmd_vel(float linear_x, float angular_z) {
-    // Differential drive kinematics
     float left_speed = linear_x - angular_z * WHEEL_SEPARATION / 2.0f;
     float right_speed = linear_x + angular_z * WHEEL_SEPARATION / 2.0f;
 
 #ifndef UNIT_TEST
-    // Normalize to PWM range (0-255)
     int left_pwm = constrain((int)(fabsf(left_speed) * 255.0f / MAX_LINEAR_SPEED), 0, 255);
     int right_pwm = constrain((int)(fabsf(right_speed) * 255.0f / MAX_LINEAR_SPEED), 0, 255);
 #endif
 
-    // Determine directions
     int new_left_dir, new_right_dir;
     if (left_speed > 0.01f) {
         new_left_dir = 1;
@@ -98,13 +95,11 @@ void motors_apply_cmd_vel(float linear_x, float angular_z) {
     }
 
 #ifndef UNIT_TEST
-    // Critical section: Set direction variables BEFORE GPIO changes to prevent
-    // ISR from reading stale direction between GPIO write and direction update
+
     portENTER_CRITICAL(&motors_mux);
     left_motor_dir = new_left_dir;
     right_motor_dir = new_right_dir;
 
-    // Left motor direction
     if (new_left_dir == 1) {
         digitalWrite(MOTOR_LEFT_AIN1, HIGH);
         digitalWrite(MOTOR_LEFT_AIN2, LOW);
@@ -116,7 +111,6 @@ void motors_apply_cmd_vel(float linear_x, float angular_z) {
         digitalWrite(MOTOR_LEFT_AIN2, LOW);
     }
 
-    // Right motor direction
     if (new_right_dir == 1) {
         digitalWrite(MOTOR_RIGHT_BIN1, HIGH);
         digitalWrite(MOTOR_RIGHT_BIN2, LOW);
@@ -129,7 +123,6 @@ void motors_apply_cmd_vel(float linear_x, float angular_z) {
     }
     portEXIT_CRITICAL(&motors_mux);
 
-    // Apply PWM (outside critical section — PWM duty doesn't affect direction)
     ledcWrite(LEDC_CH_MOTOR_LEFT, left_pwm);
     ledcWrite(LEDC_CH_MOTOR_RIGHT, right_pwm);
 #else
