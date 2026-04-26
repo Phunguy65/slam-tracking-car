@@ -6,8 +6,8 @@
 #include <Arduino.h>
 #endif
 
-#include "motors.h"
 #include "config.h"
+#include "motors.h"
 
 // ── Constants ───────────────────────────────────────────────────────────────
 static const float MAX_LINEAR_SPEED = 0.3f;  // m/s for PWM normalization
@@ -131,10 +131,6 @@ void motors_apply_cmd_vel(float linear_x, float angular_z) {
 #endif
 }
 
-int motors_get_left_dir() {
-    return left_motor_dir;
-}
+int motors_get_left_dir() { return left_motor_dir; }
 
-int motors_get_right_dir() {
-    return right_motor_dir;
-}
+int motors_get_right_dir() { return right_motor_dir; }

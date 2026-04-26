@@ -92,8 +92,8 @@ void lidar_notify_data() {
 
 /**
  * Return the millis() timestamp of the last LiDAR data sample.
- * The safety module uses this to detect data timeouts and stop motors;
- * the LiDAR module itself does not act on the value.
+ * The safety module uses this to detect data timeouts and pause scan
+ * publishing; the LiDAR module itself does not act on the value.
  */
 unsigned long lidar_get_last_data_time() { return last_data_time; }
 

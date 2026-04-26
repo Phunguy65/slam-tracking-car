@@ -365,8 +365,9 @@ static void fast_timer_callback(rcl_timer_t* timer, int64_t last_call_time) {
     static unsigned long last_fast_log_ms = 0;
     unsigned long now_ms = millis();
     if (now_ms - last_fast_log_ms >= 1000) {
-        ros_logf("odom", "x=%.3f y=%.3f theta=%.3f lin=%.3f", encoders_get_x(), encoders_get_y(),
-                 encoders_get_theta(), encoders_get_linear_vel());
+        ros_logf("odom", "x=%.3f y=%.3f theta=%.3f lin=%.3f ang=%.3f", encoders_get_x(),
+                 encoders_get_y(), encoders_get_theta(), encoders_get_linear_vel(),
+                 encoders_get_angular_vel());
         if (imu_is_enabled()) {
             ros_log("imu", "IMU data published");
         }

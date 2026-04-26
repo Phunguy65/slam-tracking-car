@@ -41,4 +41,4 @@ void safety_notify_cmd_vel();
  */
 bool safety_is_motion_allowed();
 
-#endif // SAFETY_H_
+#endif  // SAFETY_H_
