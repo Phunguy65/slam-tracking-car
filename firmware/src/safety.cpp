@@ -17,6 +17,7 @@
 #include "lidar.h"
 #include "logger.h"
 #include "motors.h"
+#include "ros_bridge.h"
 #include "safety.h"
 
 // ── Safety state ────────────────────────────────────────────────────────────
@@ -35,6 +36,14 @@ void safety_init() {
 void safety_check() {
 #ifndef UNIT_TEST
     unsigned long now = millis();
+
+    if (ros_bridge_get_state() != ROS_AGENT_CONNECTED) {
+        if (!motors_stopped_by_watchdog) {
+            motors_stop();
+            motors_stopped_by_watchdog = true;
+        }
+        return;
+    }
 
     if ((now - last_cmd_vel_time) > CMD_VEL_TIMEOUT_MS) {
         if (!motors_stopped_by_watchdog) {

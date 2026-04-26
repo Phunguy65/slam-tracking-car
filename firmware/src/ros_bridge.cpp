@@ -4,6 +4,7 @@
 
 #ifndef UNIT_TEST
 #include <Arduino.h>
+#include <WiFi.h>
 #include <geometry_msgs/msg/twist.h>
 #include <micro_ros_platformio.h>
 #include <nav_msgs/msg/odometry.h>
@@ -21,6 +22,8 @@
 
 #include <math.h>
 
+#include <cstdlib>
+
 #include "config.h"
 #include "encoders.h"
 #include "imu.h"
@@ -31,10 +34,18 @@
 #include "safety.h"
 #include "servos.h"
 
-// ── micro-ROS entities ──────────────────────────────────────────────────────
+// ── Connection state ────────────────────────────────────────────────────────
+static ros_state_t ros_state = ROS_WAITING_AGENT;
+
 #ifndef UNIT_TEST
+static unsigned long last_ping_ms = 0;
+static int ping_fail_count = 0;
+static const int PING_FAIL_THRESHOLD = 3;
+
+// ── micro-ROS entities ──────────────────────────────────────────────────────
 static rcl_allocator_t allocator;
 static rclc_support_t support;
+static rcl_init_options_t init_options;
 static rcl_node_t node;
 static rclc_executor_t executor;
 
@@ -74,7 +85,8 @@ static float scan_intensities_data[SCAN_POINTS];
 // ── Forward declarations ────────────────────────────────────────────────────
 #ifndef UNIT_TEST
 static void setup_messages();
-static void setup_micro_ros();
+static bool setup_micro_ros();
+static void destroy_micro_ros();
 static void cmd_vel_callback(const void* msg_in);
 static void servo_cmd_callback(const void* msg_in);
 static void fast_timer_callback(rcl_timer_t* timer, int64_t last_call_time);
@@ -90,15 +102,37 @@ static inline void fill_timestamp(builtin_interfaces__msg__Time* stamp) {
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
+ros_state_t ros_bridge_get_state() { return ros_state; }
+
 void ros_bridge_init() {
 #ifndef UNIT_TEST
     IPAddress agent_ip;
     agent_ip.fromString(AGENT_IP);
     set_microros_wifi_transports((char*)WIFI_SSID, (char*)WIFI_PASSWORD, agent_ip, AGENT_PORT);
+    setenv("RMW_UXRCE_DOMAIN_ID", "42", 1);
     delay(2000);
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.printf("[WiFi] Connected: %s\n", WiFi.localIP().toString().c_str());
+    } else {
+        Serial.printf("[WiFi] FATAL: not connected — check SSID/password\n");
+        while (true) {
+            digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
+            delay(200);
+        }
+    }
+
+    while (rmw_uros_ping_agent(1000, 1) != RCL_RET_OK) {
+        Serial.printf("[micro-ROS] Waiting for micro-ROS agent...\n");
+    }
+    Serial.printf("[micro-ROS] Agent found at %s:%d\n", AGENT_IP, AGENT_PORT);
+    ros_state = ROS_AGENT_AVAILABLE;
 
     setup_messages();
     setup_micro_ros();
+
+    ros_state = ROS_AGENT_CONNECTED;
+    Serial.printf("[micro-ROS] Node started — state: CONNECTED\n");
 
     ros_log("SLAM Car", "micro-ROS node started");
 #endif
@@ -106,7 +140,64 @@ void ros_bridge_init() {
 
 void ros_bridge_spin() {
 #ifndef UNIT_TEST
-    rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
+    unsigned long now_ms = millis();
+
+    if (now_ms - last_ping_ms >= AGENT_PING_INTERVAL_MS) {
+        last_ping_ms = now_ms;
+
+        bool agent_reachable = (rmw_uros_ping_agent(100, 1) == RCL_RET_OK);
+
+        switch (ros_state) {
+            case ROS_AGENT_CONNECTED:
+                if (!agent_reachable) {
+                    ping_fail_count++;
+                    if (ping_fail_count >= PING_FAIL_THRESHOLD) {
+                        Serial.printf(
+                            "[micro-ROS] Agent lost (%d consecutive fails) — stopping motors\n",
+                            ping_fail_count);
+                        ros_state = ROS_AGENT_DISCONNECTED;
+                        ping_fail_count = 0;
+                        motors_stop();
+                        destroy_micro_ros();
+                    }
+                } else {
+                    ping_fail_count = 0;
+                }
+                break;
+
+            case ROS_AGENT_DISCONNECTED:
+            case ROS_WAITING_AGENT:
+                if (agent_reachable) {
+                    Serial.printf("[micro-ROS] Agent found — reconnecting...\n");
+                    ros_state = ROS_AGENT_AVAILABLE;
+                    setup_messages();
+                    if (setup_micro_ros()) {
+                        ros_state = ROS_AGENT_CONNECTED;
+                        ping_fail_count = 0;
+                        Serial.printf("[micro-ROS] Reconnected — state: CONNECTED\n");
+                    } else {
+                        ros_state = ROS_AGENT_DISCONNECTED;
+                        Serial.printf("[micro-ROS] Reconnect failed — retrying next cycle\n");
+                    }
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    if (ros_state == ROS_AGENT_CONNECTED) {
+        rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
+    }
+
+    if (ros_state == ROS_AGENT_DISCONNECTED) {
+        static unsigned long last_blink_ms = 0;
+        if (now_ms - last_blink_ms >= 500) {
+            last_blink_ms = now_ms;
+            digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
+        }
+    }
 #endif
 }
 
@@ -176,27 +267,59 @@ static void setup_messages() {
     servo_cmd_msg.position.capacity = 1;
 }
 
+// ── Teardown in reverse-init order ─────────────────────────────────────────
+static void destroy_micro_ros() {
+    rclc_executor_fini(&executor);
+    rcl_timer_fini(&scan_timer_5hz);
+    rcl_timer_fini(&fast_timer_50hz);
+    rcl_subscription_fini(&servo_cmd_subscriber, &node);
+    rcl_subscription_fini(&cmd_vel_subscriber, &node);
+    rcl_publisher_fini(&log_publisher, &node);
+    rcl_publisher_fini(&joint_states_publisher, &node);
+    rcl_publisher_fini(&imu_publisher, &node);
+    rcl_publisher_fini(&odom_publisher, &node);
+    rcl_publisher_fini(&scan_publisher, &node);
+    rcl_node_fini(&node);
+    rclc_support_fini(&support);
+    rcl_init_options_fini(&init_options);
+}
+
 // ── micro-ROS setup ─────────────────────────────────────────────────────────
-static void setup_micro_ros() {
+static bool setup_micro_ros() {
+    static bool first_init = true;
+
     allocator = rcl_get_default_allocator();
 
-    rcl_ret_t ret = rclc_support_init(&support, 0, NULL, &allocator);
+    rcl_init_options_init(&init_options, allocator);
+    rcl_init_options_set_domain_id(&init_options, 42);
+
+    rcl_ret_t ret = rclc_support_init_with_options(&support, 0, NULL, &init_options, &allocator);
     if (ret != RCL_RET_OK) {
-        ros_logf("micro-ROS", "FATAL: rclc_support_init failed (err=%d). Check agent connectivity.",
-                 (int)ret);
-        while (true) {
-            digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
-            delay(200);
+        if (first_init) {
+            ros_logf("micro-ROS",
+                     "FATAL: rclc_support_init failed (err=%d). Check agent connectivity.",
+                     (int)ret);
+            while (true) {
+                digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
+                delay(200);
+            }
         }
+        Serial.printf("[micro-ROS] rclc_support_init failed (err=%d)\n", (int)ret);
+        return false;
     }
 
     ret = rclc_node_init_default(&node, "slam_car_esp32", "", &support);
     if (ret != RCL_RET_OK) {
-        ros_logf("micro-ROS", "FATAL: rclc_node_init failed (err=%d)", (int)ret);
-        while (true) {
-            digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
-            delay(200);
+        if (first_init) {
+            ros_logf("micro-ROS", "FATAL: rclc_node_init failed (err=%d)", (int)ret);
+            while (true) {
+                digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
+                delay(200);
+            }
         }
+        Serial.printf("[micro-ROS] rclc_node_init failed (err=%d)\n", (int)ret);
+        rclc_support_fini(&support);
+        return false;
     }
 
     if (!rmw_uros_sync_session(1000)) {
@@ -263,11 +386,17 @@ static void setup_micro_ros() {
     const size_t executor_handle_count = 4;
     ret = rclc_executor_init(&executor, &support.context, executor_handle_count, &allocator);
     if (ret != RCL_RET_OK) {
-        ros_logf("micro-ROS", "FATAL: executor init failed (err=%d)", (int)ret);
-        while (true) {
-            digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
-            delay(200);
+        if (first_init) {
+            ros_logf("micro-ROS", "FATAL: executor init failed (err=%d)", (int)ret);
+            while (true) {
+                digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
+                delay(200);
+            }
         }
+        Serial.printf("[micro-ROS] executor init failed (err=%d)\n", (int)ret);
+        rcl_node_fini(&node);
+        rclc_support_fini(&support);
+        return false;
     }
 
     rclc_executor_add_subscription(&executor, &cmd_vel_subscriber, &cmd_vel_msg, &cmd_vel_callback,
@@ -276,6 +405,9 @@ static void setup_micro_ros() {
                                    &servo_cmd_callback, ON_NEW_DATA);
     rclc_executor_add_timer(&executor, &fast_timer_50hz);
     rclc_executor_add_timer(&executor, &scan_timer_5hz);
+
+    first_init = false;
+    return true;
 }
 
 // ── cmd_vel callback ────────────────────────────────────────────────────────

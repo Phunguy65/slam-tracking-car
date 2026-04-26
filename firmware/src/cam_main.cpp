@@ -17,6 +17,8 @@
 #include <rclc/rclc.h>
 #include <std_msgs/msg/int32.h>
 
+#include <cstdlib>
+
 #include "config.h"
 #include "logger.h"
 
@@ -47,6 +49,7 @@ WiFiServer server(CAM_STREAM_PORT);
 // ── micro-ROS entities ──────────────────────────────────────────────────────
 rcl_allocator_t allocator;
 rclc_support_t support;
+rcl_init_options_t init_options;
 rcl_node_t node;
 rclc_executor_t executor;
 rcl_publisher_t rssi_publisher;
@@ -170,6 +173,7 @@ void setup() {
     IPAddress agent_ip;
     agent_ip.fromString(AGENT_IP);
     set_microros_wifi_transports((char*)WIFI_SSID, (char*)WIFI_PASSWORD, agent_ip, AGENT_PORT);
+    setenv("RMW_UXRCE_DOMAIN_ID", "42", 1);
 
     allocator = rcl_get_default_allocator();
 
@@ -178,7 +182,10 @@ void setup() {
         delay(500);
     }
 
-    RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
+    RCCHECK(rcl_init_options_init(&init_options, allocator));
+    rcl_init_options_set_domain_id(&init_options, 42);
+    RCCHECK(rclc_support_init_with_options(&support, 0, NULL, &init_options, allocator));
+    rcl_init_options_fini(&init_options);
 
     RCCHECK(rclc_node_init_default(&node, "slam_car_cam", "", &support));
 

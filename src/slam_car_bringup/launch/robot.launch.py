@@ -96,6 +96,8 @@ def generate_launch_description():
             "udp4",
             "--port",
             LaunchConfiguration("agent_port"),
+            "--domain",
+            "42",
         ],
         output="screen",
     )

@@ -162,7 +162,8 @@
 #define WHEEL_SEPARATION 0.17f  // meters (170mm, center-to-center)
 
 // ── Safety timeouts ────────────────────────────────────────────────────────────
-#define CMD_VEL_TIMEOUT_MS 1000  // ms without cmd_vel → motors stop
-#define LIDAR_TIMEOUT_MS 2000    // ms without LiDAR data → motors stop
-#define IMU_INIT_RETRIES 3       // Number of MPU6050 init attempts
-#define IMU_RETRY_DELAY_MS 500   // Delay between init retries
+#define CMD_VEL_TIMEOUT_MS 1000      // ms without cmd_vel → motors stop
+#define LIDAR_TIMEOUT_MS 2000        // ms without LiDAR data → motors stop
+#define IMU_INIT_RETRIES 3           // Number of MPU6050 init attempts
+#define IMU_RETRY_DELAY_MS 500       // Delay between init retries
+#define AGENT_PING_INTERVAL_MS 2000  // ms between agent connectivity checks
