@@ -153,7 +153,7 @@
 }
 
 .manual-joystick-controller.react-joystick-controller {
-    background: hsl(var(--primary)) !important;
+    background: var(--primary) !important;
     border: none !important;
     box-shadow: none !important;
 }
