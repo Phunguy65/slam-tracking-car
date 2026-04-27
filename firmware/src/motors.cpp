@@ -11,6 +11,8 @@
 
 // ── Constants ───────────────────────────────────────────────────────────────
 static const float MAX_LINEAR_SPEED = 0.3f;  // m/s for PWM normalization
+static const int PWM_MIN = 230;
+static const int PWM_MAX = 255;
 
 // ── Spinlock for direction critical section ─────────────────────────────────
 #ifndef UNIT_TEST
@@ -67,8 +69,10 @@ void motors_apply_cmd_vel(float linear_x, float angular_z) {
     float right_speed = linear_x + angular_z * WHEEL_SEPARATION / 2.0f;
 
 #ifndef UNIT_TEST
-    int left_pwm = constrain((int)(fabsf(left_speed) * 255.0f / MAX_LINEAR_SPEED), 0, 255);
-    int right_pwm = constrain((int)(fabsf(right_speed) * 255.0f / MAX_LINEAR_SPEED), 0, 255);
+    int left_raw = constrain((int)(fabsf(left_speed) * 255.0f / MAX_LINEAR_SPEED), 0, 255);
+    int right_raw = constrain((int)(fabsf(right_speed) * 255.0f / MAX_LINEAR_SPEED), 0, 255);
+    int left_pwm = PWM_MIN + left_raw * (PWM_MAX - PWM_MIN) / 255;
+    int right_pwm = PWM_MIN + right_raw * (PWM_MAX - PWM_MIN) / 255;
 #endif
 
     int new_left_dir, new_right_dir;

@@ -4,7 +4,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import type * as ROSLIB from 'roslib';
+import type { Topic as ROSTopic } from 'roslib';
 import { createTopic, isConnected } from '@/lib/ros-client/index.ts';
 import { useRosStore } from '@/stores/ros-store.ts';
 
@@ -34,7 +34,7 @@ export function useTopic<T>(
     options: UseTopicOptions = {},
 ): void {
     const { throttleRate, latch, queueSize, enabled = true } = options;
-    const topicRef = useRef<ROSLIB.Topic<T> | null>(null);
+    const topicRef = useRef<ROSTopic<T> | null>(null);
     const callbackRef = useRef(callback);
     const status = useRosStore((s) => s.status);
 
@@ -86,11 +86,11 @@ export function useTopic<T>(
  *
  * Returns a publish function that can be called with messages.
  */
-export function usePublisher<T extends ROSLIB.Message>(
+export function usePublisher<T>(
     topicName: string,
     messageType: string,
 ): (message: T) => void {
-    const topicRef = useRef<ROSLIB.Topic<T> | null>(null);
+    const topicRef = useRef<ROSTopic<T> | null>(null);
     const status = useRosStore((s) => s.status);
 
     useEffect(() => {

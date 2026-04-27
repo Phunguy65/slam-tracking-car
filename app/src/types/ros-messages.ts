@@ -178,14 +178,12 @@ export interface NavigateToPoseFeedback {
 export type NavigateToPoseResult = Record<string, never>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// explore_lite action
+// explore_lite_msgs
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ExploreGoal = Record<string, never>;
-
-export type ExploreFeedback = Record<string, never>;
-
-export type ExploreResult = Record<string, never>;
+export interface ExploreStatus {
+    status: string;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // slam_toolbox services

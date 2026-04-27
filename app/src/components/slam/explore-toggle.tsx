@@ -3,33 +3,42 @@
  */
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Switch } from '@/components/ui/switch.tsx';
-import { useAction } from '@/hooks/use-action.ts';
+import { usePublisher, useTopic } from '@/hooks/use-topic.ts';
+import { useNavStore } from '@/stores/nav-store.ts';
 import { useRosStore } from '@/stores/ros-store.ts';
-import type {
-    ExploreFeedback,
-    ExploreGoal,
-    ExploreResult,
-} from '@/types/ros-messages.ts';
+import type { ExploreStatus } from '@/types/ros-messages.ts';
 
 export function ExploreToggle() {
     const status = useRosStore((s) => s.status);
-    const { isExecuting, sendGoal, cancel } = useAction<
-        ExploreGoal,
-        ExploreFeedback,
-        ExploreResult
-    >('/explore/explore', 'explore_lite/Explore');
+    const [isExploring, setIsExploring] = useState(false);
+    const cancelNav = useNavStore((s) => s.cancel);
+
+    const publishExplore = usePublisher<{ data: boolean }>(
+        '/explore/resume',
+        'std_msgs/Bool',
+    );
+
+    useTopic<ExploreStatus>(
+        '/explore/status',
+        'explore_lite_msgs/ExploreStatus',
+        (message) => {
+            setIsExploring(
+                message.status === 'exploration_started'
+                    || message.status === 'exploration_in_progress',
+            );
+        },
+    );
 
     const handleToggle = useCallback(
         (enabled: boolean) => {
-            if (enabled) {
-                sendGoal({});
-            } else {
-                cancel();
+            if (!enabled) {
+                cancelNav();
             }
+            publishExplore({ data: enabled });
         },
-        [sendGoal, cancel],
+        [publishExplore, cancelNav],
     );
 
     return (
@@ -39,14 +48,14 @@ export function ExploreToggle() {
                     Auto Exploration
                 </label>
                 <p className='text-xs text-muted-foreground'>
-                    {isExecuting
+                    {isExploring
                         ? 'Robot exploring frontiers...'
                         : 'Frontier exploration disabled'}
                 </p>
             </div>
             <Switch
                 id='explore-toggle'
-                checked={isExecuting}
+                checked={isExploring}
                 onCheckedChange={handleToggle}
                 disabled={status !== 'connected'}
             />

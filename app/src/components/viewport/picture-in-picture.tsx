@@ -7,9 +7,10 @@
  */
 'use client';
 
-import { Maximize2, Minimize2, Move, X } from 'lucide-react';
+import { Maximize2, Minimize2, Move, Video, VideoOff, X } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { CameraStream } from '@/components/tracking/camera-stream.tsx';
+import { usePublisher } from '@/hooks/use-topic.ts';
 import { cn } from '@/lib/utils.ts';
 import {
     type PipPosition,
@@ -52,9 +53,18 @@ export function PictureInPicture() {
     const pipPosition = useDashboardStore((s) => s.pipPosition);
     const setPipEnabled = useDashboardStore((s) => s.setPipEnabled);
     const setPipPosition = useDashboardStore((s) => s.setPipPosition);
+    const cameraStreamEnabled = useDashboardStore((s) => s.cameraStreamEnabled);
+    const setCameraStreamEnabled = useDashboardStore(
+        (s) => s.setCameraStreamEnabled,
+    );
     const [isExpanded, setIsExpanded] = useState(false);
     const [dragPosition, setDragPosition] = useState<DragPosition | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+
+    const publish = usePublisher<{ data: boolean }>(
+        '/cam/stream_enable',
+        'std_msgs/msg/Bool',
+    );
 
     const sectionRef = useRef<HTMLElement>(null);
     const dragStartRef = useRef<{
@@ -85,6 +95,12 @@ export function PictureInPicture() {
         setDragPosition(null);
     }, [pipPosition, setPipPosition]);
 
+    const handleStreamToggle = useCallback(() => {
+        const newValue = !cameraStreamEnabled;
+        setCameraStreamEnabled(newValue);
+        publish({ data: newValue });
+    }, [cameraStreamEnabled, setCameraStreamEnabled, publish]);
+
     const handlePointerDown = useCallback(
         (e: React.PointerEvent<HTMLDivElement>) => {
             if ((e.target as HTMLElement).closest('button')) return;
@@ -108,8 +124,10 @@ export function PictureInPicture() {
             const handlePointerMove = (moveEvent: PointerEvent) => {
                 if (!dragStartRef.current || !section) return;
 
-                const deltaX = moveEvent.clientX - dragStartRef.current.pointerX;
-                const deltaY = moveEvent.clientY - dragStartRef.current.pointerY;
+                const deltaX =
+                    moveEvent.clientX - dragStartRef.current.pointerX;
+                const deltaY =
+                    moveEvent.clientY - dragStartRef.current.pointerY;
 
                 const newX = dragStartRef.current.elementX + deltaX;
                 const newY = dragStartRef.current.elementY + deltaY;
@@ -155,7 +173,7 @@ export function PictureInPicture() {
             aria-label='Camera picture-in-picture view'
         >
             <div className='absolute inset-0'>
-                <CameraStream />
+                <CameraStream enabled={cameraStreamEnabled} />
             </div>
 
             <div
@@ -188,6 +206,27 @@ export function PictureInPicture() {
                             <Minimize2 className='size-3.5' />
                         ) : (
                             <Maximize2 className='size-3.5' />
+                        )}
+                    </button>
+                    <button
+                        type='button'
+                        onClick={handleStreamToggle}
+                        className='p-1 rounded hover:bg-white/20 text-white/70 hover:text-white transition-colors'
+                        title={
+                            cameraStreamEnabled
+                                ? 'Disable stream'
+                                : 'Enable stream'
+                        }
+                        aria-label={
+                            cameraStreamEnabled
+                                ? 'Disable camera stream'
+                                : 'Enable camera stream'
+                        }
+                    >
+                        {cameraStreamEnabled ? (
+                            <Video className='size-3.5' />
+                        ) : (
+                            <VideoOff className='size-3.5' />
                         )}
                     </button>
                     <button

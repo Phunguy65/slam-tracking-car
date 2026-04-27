@@ -49,10 +49,13 @@ export function EnrollModal({ open, onOpenChange }: EnrollModalProps) {
         [setTarget, setTargetPerson],
     );
 
-    const handleAddPerson = useCallback(async () => {
-        if (!enrollName.trim()) return;
-        await addPerson(enrollName.trim());
-    }, [enrollName, addPerson]);
+    const handleAddPerson = useCallback(
+        async (name: string) => {
+            if (!name.trim()) return null;
+            return addPerson(name.trim());
+        },
+        [addPerson],
+    );
 
     const handleClose = useCallback(() => {
         onOpenChange(false);

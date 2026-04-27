@@ -31,9 +31,10 @@ export function getRos(): ROSLIB.Ros {
         }
     });
 
-    rosInstance.on('error', (error) => {
+    rosInstance.on('error', (error: unknown) => {
         console.error('[ros-client] Connection error:', error);
-        setError(error.message || 'Connection error');
+        const msg = error instanceof Error ? error.message : 'Connection error';
+        setError(msg);
     });
 
     rosInstance.on('close', () => {
@@ -189,7 +190,7 @@ export function createGoal<TGoal, TFeedback, TResult>(
 /**
  * Publish a single message to a topic.
  */
-export function publish<T extends ROSLIB.Message>(
+export function publish<T>(
     topicName: string,
     messageType: string,
     message: T,

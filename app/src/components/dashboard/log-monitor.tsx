@@ -67,7 +67,7 @@ export function LogMonitor({ open }: LogMonitorProps) {
     const [entries, setEntries] = useState<LogEntry[]>([]);
     const [filter, setFilter] = useState<FilterLevel>('ALL');
     const userScrolledUpRef = useRef(false);
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLElement>(null);
     const entryIdRef = useRef(0);
 
     const handleLog = useCallback((msg: Log) => {
@@ -95,6 +95,12 @@ export function LogMonitor({ open }: LogMonitorProps) {
         if (!el) return;
         const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
         userScrolledUpRef.current = !atBottom;
+    }, []);
+
+    const handleMouseUp = useCallback(() => {
+        const selected = window.getSelection()?.toString()?.trim();
+        if (!selected) return;
+        navigator.clipboard?.writeText(selected).catch(() => {});
     }, []);
 
     const filteredEntries = entries.filter((e) => meetsFilter(e, filter));
@@ -145,9 +151,11 @@ export function LogMonitor({ open }: LogMonitorProps) {
                     </span>
                 </div>
 
-                <div
+                <section
                     ref={scrollRef}
                     onScroll={handleScroll}
+                    onMouseUp={handleMouseUp}
+                    aria-label='Log scroll area'
                     className='flex-1 overflow-y-auto px-3 py-1 font-mono text-[11px] leading-5'
                 >
                     {filteredEntries.length === 0 && (
@@ -183,7 +191,7 @@ export function LogMonitor({ open }: LogMonitorProps) {
                             </span>
                         </div>
                     ))}
-                </div>
+                </section>
             </div>
         </div>
     );

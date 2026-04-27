@@ -159,7 +159,13 @@ export function PidTuner() {
                             min={min}
                             max={max}
                             step={step}
-                            onValueChange={([v]) => handleChange(key, param, v)}
+                            onValueChange={(val) =>
+                                handleChange(
+                                    key,
+                                    param,
+                                    Array.isArray(val) ? val[0] : val,
+                                )
+                            }
                             disabled={isDisabled}
                             className='w-full'
                         />

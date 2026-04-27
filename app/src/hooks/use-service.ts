@@ -4,7 +4,7 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
-import type * as ROSLIB from 'roslib';
+import type { Service as ROSService } from 'roslib';
 import { createService, isConnected } from '@/lib/ros-client/index.ts';
 
 interface UseServiceResult<TReq, TRes> {
@@ -25,7 +25,7 @@ export function useService<TReq, TRes>(
     serviceType: string,
 ): UseServiceResult<TReq, TRes> {
     const pendingRef = useRef(false);
-    const serviceRef = useRef<ROSLIB.Service<TReq, TRes> | null>(null);
+    const serviceRef = useRef<ROSService<TReq, TRes> | null>(null);
 
     const call = useCallback(
         async (request: TReq): Promise<TRes> => {
@@ -44,7 +44,6 @@ export function useService<TReq, TRes>(
             pendingRef.current = true;
 
             return new Promise((resolve, reject) => {
-                const req = new ROSLIB.ServiceRequest(request);
                 const service = serviceRef.current;
                 if (!service) {
                     pendingRef.current = false;
@@ -53,7 +52,7 @@ export function useService<TReq, TRes>(
                 }
 
                 service.callService(
-                    req,
+                    request,
                     (response: TRes) => {
                         pendingRef.current = false;
                         resolve(response);

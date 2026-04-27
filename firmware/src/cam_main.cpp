@@ -15,6 +15,7 @@
 #include <rcl_interfaces/msg/log.h>
 #include <rclc/executor.h>
 #include <rclc/rclc.h>
+#include <std_msgs/msg/bool.h>
 #include <std_msgs/msg/int32.h>
 
 #include <cstdlib>
@@ -56,6 +57,11 @@ rcl_publisher_t rssi_publisher;
 rcl_publisher_t log_publisher;
 std_msgs__msg__Int32 rssi_msg;
 rcl_timer_t timer;
+
+// ── Stream enable subscription ───────────────────────────────────────────────
+static volatile bool stream_enabled = true;
+rcl_subscription_t stream_enable_sub;
+std_msgs__msg__Bool stream_enable_msg;
 
 // ── Camera init ─────────────────────────────────────────────────────────────
 bool init_camera() {
@@ -99,6 +105,12 @@ bool init_camera() {
     return true;
 }
 
+// ── Stream enable subscription callback ─────────────────────────────────────
+void stream_enable_callback(const void* msgin) {
+    const std_msgs__msg__Bool* msg = (const std_msgs__msg__Bool*)msgin;
+    stream_enabled = msg->data;
+}
+
 // ── MJPEG stream handler ────────────────────────────────────────────────────
 void handle_stream(WiFiClient& client) {
     String response = "HTTP/1.1 200 OK\r\n";
@@ -106,6 +118,11 @@ void handle_stream(WiFiClient& client) {
     client.print(response);
 
     while (client.connected()) {
+        if (!stream_enabled) {
+            delay(STREAM_FRAME_INTERVAL_MS);
+            continue;
+        }
+
         camera_fb_t* fb = esp_camera_fb_get();
         if (!fb) {
             ros_log("CAM", "Camera capture failed");
@@ -184,7 +201,7 @@ void setup() {
 
     RCCHECK(rcl_init_options_init(&init_options, allocator));
     rcl_init_options_set_domain_id(&init_options, 42);
-    RCCHECK(rclc_support_init_with_options(&support, 0, NULL, &init_options, allocator));
+    RCCHECK(rclc_support_init_with_options(&support, 0, NULL, &init_options, &allocator));
     rcl_init_options_fini(&init_options);
 
     RCCHECK(rclc_node_init_default(&node, "slam_car_cam", "", &support));
@@ -199,10 +216,16 @@ void setup() {
         logger_set_publisher(&log_publisher);
     }
 
+    RCCHECK(rclc_subscription_init_default(&stream_enable_sub, &node,
+                                           ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
+                                           "cam/stream_enable"));
+
     RCCHECK(rclc_timer_init_default(&timer, &support, RCL_MS_TO_NS(1000), timer_callback));
 
-    rclc_executor_init(&executor, &support.context, 1, &allocator);
+    rclc_executor_init(&executor, &support.context, 2, &allocator);
     rclc_executor_add_timer(&executor, &timer);
+    rclc_executor_add_subscription(&executor, &stream_enable_sub, &stream_enable_msg,
+                                   &stream_enable_callback, ON_NEW_DATA);
 
     ros_log("SLAM Car CAM", "micro-ROS node started");
 }

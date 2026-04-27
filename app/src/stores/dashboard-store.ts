@@ -28,6 +28,7 @@ interface DashboardState {
     enrollModalOpen: boolean;
     manualOverride: boolean;
     rosError: string | null;
+    cameraStreamEnabled: boolean;
 }
 
 interface DashboardActions {
@@ -43,6 +44,7 @@ interface DashboardActions {
     setManualOverride: (override: boolean) => void;
     setRosError: (error: string | null) => void;
     clearRosError: () => void;
+    setCameraStreamEnabled: (enabled: boolean) => void;
 }
 
 export const useDashboardStore = create<DashboardState & DashboardActions>(
@@ -59,6 +61,7 @@ export const useDashboardStore = create<DashboardState & DashboardActions>(
         enrollModalOpen: false,
         manualOverride: false,
         rosError: null,
+        cameraStreamEnabled: true,
 
         setPrimaryMode: (mode) =>
             set(() => ({
@@ -100,5 +103,8 @@ export const useDashboardStore = create<DashboardState & DashboardActions>(
         setRosError: (error) => set({ rosError: error }),
 
         clearRosError: () => set({ rosError: null }),
+
+        setCameraStreamEnabled: (enabled) =>
+            set({ cameraStreamEnabled: enabled }),
     }),
 );

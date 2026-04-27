@@ -1,7 +1,8 @@
 /**
  * Camera stream component with Canvas rendering.
  *
- * Subscribes to compressed image topic and renders frames.
+ * Subscribes to compressed image topic and renders frames when enabled.
+ * Renders a "Stream Off" placeholder when streaming is disabled.
  */
 'use client';
 
@@ -13,11 +14,21 @@ import {
 } from '@/lib/compressed-image.ts';
 import type { CompressedImage } from '@/types/ros-messages.ts';
 
-export function CameraStream() {
+interface CameraStreamProps {
+    enabled?: boolean;
+}
+
+/**
+ * Renders the live camera feed or a disabled placeholder.
+ *
+ * @param enabled - Whether to subscribe and render incoming frames.
+ *   Defaults to `true`. When `false`, stops the subscription and shows
+ *   a "Stream Off" placeholder instead.
+ */
+export function CameraStream({ enabled = true }: CameraStreamProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Handle resize
     useEffect(() => {
         const updateCanvasSize = () => {
             const canvas = canvasRef.current;
@@ -38,7 +49,6 @@ export function CameraStream() {
         return () => observer.disconnect();
     }, []);
 
-    // Handle incoming images
     const handleImage = useCallback(async (msg: CompressedImage) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -58,8 +68,21 @@ export function CameraStream() {
         '/camera/image_raw/compressed',
         'sensor_msgs/CompressedImage',
         handleImage,
-        { throttleRate: 33 }, // ~30fps max
+        { throttleRate: 33, enabled }, // ~30fps max; gated on enabled flag
     );
+
+    if (!enabled) {
+        return (
+            <div
+                ref={containerRef}
+                className='absolute inset-0 bg-black flex items-center justify-center'
+            >
+                <span className='text-slate-500 font-mono text-sm'>
+                    Stream Off
+                </span>
+            </div>
+        );
+    }
 
     return (
         <div ref={containerRef} className='absolute inset-0'>

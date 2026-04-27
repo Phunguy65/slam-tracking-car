@@ -6,9 +6,9 @@
 'use client';
 
 import { Compass, Map as MapIcon, Navigation, Target } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Switch } from '@/components/ui/switch.tsx';
-import { useAction } from '@/hooks/use-action.ts';
+import { usePublisher, useTopic } from '@/hooks/use-topic.ts';
 import { cn } from '@/lib/utils.ts';
 import {
     type PrimaryMode,
@@ -16,11 +16,8 @@ import {
     useDashboardStore,
 } from '@/stores/dashboard-store.ts';
 import { useModeStore } from '@/stores/mode-store.ts';
-import type {
-    ExploreFeedback,
-    ExploreGoal,
-    ExploreResult,
-} from '@/types/ros-messages.ts';
+import { useNavStore } from '@/stores/nav-store.ts';
+import type { ExploreStatus } from '@/types/ros-messages.ts';
 
 interface ModeControllerProps {
     disabled?: boolean;
@@ -29,20 +26,32 @@ interface ModeControllerProps {
 export function ModeController({ disabled = false }: ModeControllerProps) {
     const primaryMode = useDashboardStore((s) => s.primaryMode);
     const slamSubmode = useDashboardStore((s) => s.slamSubmode);
-    const autoExplore = useDashboardStore((s) => s.autoExplore);
     const setPrimaryMode = useDashboardStore((s) => s.setPrimaryMode);
     const setSlamSubmode = useDashboardStore((s) => s.setSlamSubmode);
     const setAutoExplore = useDashboardStore((s) => s.setAutoExplore);
 
     const { setMode: setRosMode, isSwitching } = useModeStore();
+    const cancelNav = useNavStore((s) => s.cancel);
 
-    const {
-        isExecuting: isExploring,
-        sendGoal,
-        cancel,
-    } = useAction<ExploreGoal, ExploreFeedback, ExploreResult>(
-        '/explore/explore',
-        'explore_lite/Explore',
+    const isMappingActive = primaryMode === 'slam' && slamSubmode === 'mapping';
+
+    const [isExploring, setIsExploring] = useState(false);
+
+    const publishExplore = usePublisher<{ data: boolean }>(
+        '/explore/resume',
+        'std_msgs/Bool',
+    );
+
+    useTopic<ExploreStatus>(
+        '/explore/status',
+        'explore_lite_msgs/ExploreStatus',
+        (message) => {
+            setIsExploring(
+                message.status === 'exploration_started'
+                    || message.status === 'exploration_in_progress',
+            );
+        },
+        { enabled: isMappingActive },
     );
 
     const handlePrimaryModeChange = useCallback(
@@ -68,15 +77,13 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
 
     const handleAutoExploreToggle = useCallback(
         (enabled: boolean) => {
-            if (enabled) {
-                sendGoal({});
-                setAutoExplore(true);
-            } else {
-                cancel();
-                setAutoExplore(false);
+            if (!enabled) {
+                cancelNav();
             }
+            publishExplore({ data: enabled });
+            setAutoExplore(enabled);
         },
-        [sendGoal, cancel, setAutoExplore],
+        [publishExplore, setAutoExplore, cancelNav],
     );
 
     const isSlam = primaryMode === 'slam';
@@ -152,7 +159,7 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
                         </span>
                     </div>
                     <Switch
-                        checked={isExploring || autoExplore}
+                        checked={isExploring}
                         onCheckedChange={handleAutoExploreToggle}
                         disabled={disabled}
                         aria-label='Toggle auto exploration'
