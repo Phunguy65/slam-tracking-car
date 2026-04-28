@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch.tsx';
 import { usePublisher, useTopic } from '@/hooks/use-topic.ts';
 import { useNavStore } from '@/stores/nav-store.ts';
 import { useRosStore } from '@/stores/ros-store.ts';
-import type { ExploreStatus } from '@/types/ros-messages.ts';
+import { ExploreState, type ExploreStatus } from '@/types/ros-messages.ts';
 
 export function ExploreToggle() {
     const status = useRosStore((s) => s.status);
@@ -24,10 +24,7 @@ export function ExploreToggle() {
         '/explore/status',
         'explore_lite_msgs/ExploreStatus',
         (message) => {
-            setIsExploring(
-                message.status === 'exploration_started'
-                    || message.status === 'exploration_in_progress',
-            );
+            setIsExploring(message.status === ExploreState.EXPLORING);
         },
     );
 

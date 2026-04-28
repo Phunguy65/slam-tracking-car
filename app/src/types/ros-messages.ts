@@ -181,8 +181,15 @@ export type NavigateToPoseResult = Record<string, never>;
 // explore_lite_msgs
 // ─────────────────────────────────────────────────────────────────────────────
 
+export const ExploreState = {
+    IDLE: 0,
+    EXPLORING: 1,
+    FINISHED: 2,
+    FAILED: 3,
+} as const;
+
 export interface ExploreStatus {
-    status: string;
+    status: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

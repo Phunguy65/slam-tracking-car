@@ -39,6 +39,8 @@ static ros_state_t ros_state = ROS_WAITING_AGENT;
 
 #ifndef UNIT_TEST
 static unsigned long last_ping_ms = 0;
+static unsigned long last_time_sync_ms = 0;
+static const unsigned long TIME_SYNC_INTERVAL_MS = 30000;
 static int ping_fail_count = 0;
 static const int PING_FAIL_THRESHOLD = 3;
 
@@ -162,6 +164,17 @@ void ros_bridge_spin() {
                     }
                 } else {
                     ping_fail_count = 0;
+
+                    if (now_ms - last_time_sync_ms >= TIME_SYNC_INTERVAL_MS) {
+                        last_time_sync_ms = now_ms;
+                        if (rmw_uros_sync_session(500)) {
+                            int64_t now_ns = rmw_uros_epoch_nanos();
+                            Serial.printf("[micro-ROS] Time re-synced — epoch=%lld\n",
+                                          (long long)now_ns);
+                        } else {
+                            ros_log("micro-ROS", "WARNING: periodic time sync failed");
+                        }
+                    }
                 }
                 break;
 
@@ -322,11 +335,23 @@ static bool setup_micro_ros() {
         return false;
     }
 
-    if (!rmw_uros_sync_session(1000)) {
-        ros_log("micro-ROS", "WARNING: time sync failed — timestamps may be incorrect");
-    } else {
-        ros_log("micro-ROS", "Time synced with agent");
+    bool synced = false;
+    for (int attempt = 0; attempt < 5; attempt++) {
+        if (rmw_uros_sync_session(1000)) {
+            synced = true;
+            break;
+        }
+        Serial.printf("[micro-ROS] Time sync attempt %d/5 failed, retrying...\n", attempt + 1);
+        delay(200);
     }
+    if (synced) {
+        int64_t now_ns = rmw_uros_epoch_nanos();
+        ros_logf("micro-ROS", "Time synced — epoch=%lld", (long long)now_ns);
+    } else {
+        ros_log("micro-ROS",
+                "CRITICAL: time sync failed after 5 attempts — timestamps will be wrong");
+    }
+    last_time_sync_ms = millis();
 
     // ── Publishers ──
     ret = rclc_publisher_init_default(

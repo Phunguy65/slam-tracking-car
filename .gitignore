@@ -24,8 +24,8 @@ firmware/.vscode/
 
 # ── Maps (large binary files — track selectively) ───────────────────────────
 # Uncomment below to ignore all maps by default:
-# src/slam_car_bringup/maps/*.pgm
-# src/slam_car_bringup/maps/*.yaml
+map_*.pgm
+map_*.yaml
 
 # ── Environment / Secrets ───────────────────────────────────────────────────
 .env

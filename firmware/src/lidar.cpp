@@ -38,7 +38,7 @@ static size_t lidar_serial_write_cb(const uint8_t* buffer, size_t length);
 
 void lidar_init() {
 #ifndef UNIT_TEST
-    LidarSerial.begin(LIDAR_BAUD, SERIAL_8N1, LIDAR_RX_PIN, LIDAR_TX_PIN);
+    LidarSerial.begin(LIDAR_BAUD, SERIAL_8N1, LIDAR_TX_PIN, LIDAR_RX_PIN);
 
     lidar.setScanPointCallback(lidar_scan_point_cb);
     lidar.setMotorPinCallback(lidar_motor_pin_cb);
@@ -65,7 +65,22 @@ void lidar_init() {
 
 void lidar_loop() {
 #ifndef UNIT_TEST
+    static unsigned long last_diag_ms = 0;
+    static unsigned long byte_count = 0;
+
+    int avail = LidarSerial.available();
+    byte_count += avail;
+
     lidar.loop();
+
+    unsigned long now = millis();
+    if (now - last_diag_ms >= 2000) {
+        Serial.printf("[LiDAR DIAG] bytes_received=%lu, available=%d, scan_ready=%d, active=%d\n",
+                      byte_count, LidarSerial.available(), (int)scan_ready_flag,
+                      (int)lidar_active_flag);
+        byte_count = 0;
+        last_diag_ms = now;
+    }
 #endif
 }
 
@@ -75,7 +90,12 @@ bool lidar_is_scan_ready() { return scan_ready_flag; }
 
 const float* lidar_get_ranges() { return scan_ranges; }
 
-void lidar_clear_scan_ready() { scan_ready_flag = false; }
+void lidar_clear_scan_ready() {
+    scan_ready_flag = false;
+    for (int i = 0; i < SCAN_POINTS; i++) {
+        scan_ranges[i] = INFINITY;
+    }
+}
 
 void lidar_notify_data() {
 #ifndef UNIT_TEST
@@ -107,8 +127,6 @@ static void lidar_scan_point_cb(float angle_deg, float distance_mm, float qualit
 
     if (scan_completed) {
         scan_ready_flag = true;
-        for (int i = 0; i < SCAN_POINTS; i++) scan_ranges[i] = INFINITY;
-        return;
     }
 
     int idx = constrain((int)angle_deg, 0, SCAN_POINTS - 1);

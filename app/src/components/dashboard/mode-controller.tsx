@@ -17,7 +17,7 @@ import {
 } from '@/stores/dashboard-store.ts';
 import { useModeStore } from '@/stores/mode-store.ts';
 import { useNavStore } from '@/stores/nav-store.ts';
-import type { ExploreStatus } from '@/types/ros-messages.ts';
+import { ExploreState, type ExploreStatus } from '@/types/ros-messages.ts';
 
 interface ModeControllerProps {
     disabled?: boolean;
@@ -46,10 +46,7 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
         '/explore/status',
         'explore_lite_msgs/ExploreStatus',
         (message) => {
-            setIsExploring(
-                message.status === 'exploration_started'
-                    || message.status === 'exploration_in_progress',
-            );
+            setIsExploring(message.status === ExploreState.EXPLORING);
         },
         { enabled: isMappingActive },
     );
