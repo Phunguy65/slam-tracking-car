@@ -6,33 +6,58 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useTopic } from '@/hooks/use-topic.ts';
 import { renderLaserScan } from '@/lib/laser-scan.ts';
+import { cn } from '@/lib/utils.ts';
 import type { LaserScan } from '@/types/ros-messages.ts';
 
-export function LidarRadar() {
+interface LidarRadarProps {
+    className?: string;
+    compact?: boolean;
+    size?: number;
+}
+
+export function LidarRadar({
+    className,
+    compact = false,
+    size = 200,
+}: LidarRadarProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const scanRef = useRef<LaserScan | null>(null);
 
-    // Handle resize
     useEffect(() => {
+        if (compact) {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            canvas.width = size;
+            canvas.height = size;
+            if (scanRef.current) {
+                const ctx = canvas.getContext('2d');
+                if (ctx) renderLaserScan(ctx, scanRef.current, size, size);
+            }
+            return;
+        }
+
         const updateCanvasSize = () => {
             const canvas = canvasRef.current;
             const container = containerRef.current;
             if (!canvas || !container) return;
 
-            // Make it square based on smaller dimension
-            const size = Math.min(
+            const currentSize = Math.min(
                 container.clientWidth,
                 container.clientHeight,
             );
-            canvas.width = size;
-            canvas.height = size;
+            canvas.width = currentSize;
+            canvas.height = currentSize;
 
-            // Re-render if we have a scan
             if (scanRef.current) {
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
-                    renderLaserScan(ctx, scanRef.current, size, size);
+                    renderLaserScan(
+                        ctx,
+                        scanRef.current,
+                        currentSize,
+                        currentSize,
+                    );
                 }
             }
         };
@@ -45,9 +70,8 @@ export function LidarRadar() {
         }
 
         return () => observer.disconnect();
-    }, []);
+    }, [compact, size]);
 
-    // Handle incoming scan data
     const handleScan = useCallback((msg: LaserScan) => {
         scanRef.current = msg;
 
@@ -60,21 +84,23 @@ export function LidarRadar() {
         renderLaserScan(ctx, msg, canvas.width, canvas.height);
     }, []);
 
-    useTopic<LaserScan>(
-        '/scan',
-        'sensor_msgs/LaserScan',
-        handleScan,
-        { throttleRate: 200 }, // 5 Hz
-    );
+    useTopic<LaserScan>('/scan', 'sensor_msgs/LaserScan', handleScan, {
+        throttleRate: 200,
+    });
 
     return (
         <div
             ref={containerRef}
-            className='absolute inset-0 flex items-center justify-center'
+            className={cn(
+                compact
+                    ? 'flex items-center justify-center'
+                    : 'absolute inset-0 flex items-center justify-center',
+                className,
+            )}
         >
             <canvas
                 ref={canvasRef}
-                className='max-w-full max-h-full'
+                className={compact ? 'block' : 'max-w-full max-h-full'}
                 role='img'
                 aria-label='LiDAR point cloud radar view'
             />

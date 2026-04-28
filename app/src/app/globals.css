@@ -213,3 +213,41 @@
         @apply absolute bottom-4 left-1/2 -translate-x-1/2;
     }
 }
+
+/* Minimap swap animations */
+@keyframes minimap-swap-out {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+}
+
+@keyframes minimap-swap-in {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.animate-minimap-out {
+    animation: minimap-swap-out 200ms ease-in forwards;
+}
+
+.animate-minimap-in {
+    animation: minimap-swap-in 200ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-minimap-out,
+    .animate-minimap-in {
+        animation: none;
+    }
+}

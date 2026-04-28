@@ -8,9 +8,9 @@
 
 import { useState } from 'react';
 import { ManualJoystick } from '@/components/slam/manual-joystick.tsx';
-import { MinimapOverlay } from '@/components/viewport/minimap-overlay.tsx';
 import { PictureInPicture } from '@/components/viewport/picture-in-picture.tsx';
 import { PrimaryViewport } from '@/components/viewport/primary-viewport.tsx';
+import { SwappableMinimap } from '@/components/viewport/swappable-minimap.tsx';
 import { useDashboardStore } from '@/stores/dashboard-store.ts';
 import { useRosStore } from '@/stores/ros-store.ts';
 import { DashboardKeyboardHandler } from './dashboard-keyboard-handler.tsx';
@@ -28,6 +28,7 @@ export function UnifiedDashboard() {
     const slamSubmode = useDashboardStore((s) => s.slamSubmode);
     const pipEnabled = useDashboardStore((s) => s.pipEnabled);
     const minimapEnabled = useDashboardStore((s) => s.minimapEnabled);
+    const minimapViewMode = useDashboardStore((s) => s.minimapViewMode);
     const autoExplore = useDashboardStore((s) => s.autoExplore);
     const manualOverride = useDashboardStore((s) => s.manualOverride);
 
@@ -47,11 +48,12 @@ export function UnifiedDashboard() {
                     <PrimaryViewport
                         mode={primaryMode}
                         slamSubmode={slamSubmode}
+                        minimapViewMode={minimapViewMode}
                     />
 
                     {isSlam && pipEnabled && <PictureInPicture />}
 
-                    {isTracking && minimapEnabled && <MinimapOverlay />}
+                    {minimapEnabled && <SwappableMinimap />}
 
                     <div className='absolute inset-0 pointer-events-none p-4'>
                         <div className='flex items-start justify-between pointer-events-auto'>

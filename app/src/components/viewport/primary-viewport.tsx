@@ -8,17 +8,31 @@
 
 import { CameraStream } from '@/components/tracking/camera-stream.tsx';
 import { PersonOverlay } from '@/components/tracking/person-overlay.tsx';
-import type { PrimaryMode, SlamSubmode } from '@/stores/dashboard-store.ts';
+import type {
+    MinimapViewMode,
+    PrimaryMode,
+    SlamSubmode,
+} from '@/stores/dashboard-store.ts';
 import { SlamViewport } from './slam-viewport.tsx';
 
 interface PrimaryViewportProps {
     mode: PrimaryMode;
     slamSubmode: SlamSubmode;
+    minimapViewMode: MinimapViewMode;
 }
 
-export function PrimaryViewport({ mode, slamSubmode }: PrimaryViewportProps) {
+export function PrimaryViewport({
+    mode,
+    slamSubmode,
+    minimapViewMode,
+}: PrimaryViewportProps) {
     if (mode === 'slam') {
-        return <SlamViewport submode={slamSubmode} />;
+        return (
+            <SlamViewport
+                submode={slamSubmode}
+                minimapViewMode={minimapViewMode}
+            />
+        );
     }
 
     return (

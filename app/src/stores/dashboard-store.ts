@@ -14,6 +14,7 @@ export type PipPosition =
     | 'top-left'
     | 'bottom-right'
     | 'bottom-left';
+export type MinimapViewMode = 'lidar' | 'map';
 
 interface DashboardState {
     primaryMode: PrimaryMode;
@@ -25,6 +26,7 @@ interface DashboardState {
     pipEnabled: boolean;
     pipPosition: PipPosition;
     minimapEnabled: boolean;
+    minimapViewMode: MinimapViewMode;
     enrollModalOpen: boolean;
     manualOverride: boolean;
     rosError: string | null;
@@ -40,6 +42,8 @@ interface DashboardActions {
     setPipEnabled: (enabled: boolean) => void;
     setPipPosition: (position: PipPosition) => void;
     setMinimapEnabled: (enabled: boolean) => void;
+    setMinimapViewMode: (mode: MinimapViewMode) => void;
+    toggleMinimapViewMode: () => void;
     setEnrollModalOpen: (open: boolean) => void;
     setManualOverride: (override: boolean) => void;
     setRosError: (error: string | null) => void;
@@ -58,6 +62,7 @@ export const useDashboardStore = create<DashboardState & DashboardActions>(
         pipEnabled: true,
         pipPosition: 'top-right',
         minimapEnabled: true,
+        minimapViewMode: 'lidar',
         enrollModalOpen: false,
         manualOverride: false,
         rosError: null,
@@ -91,6 +96,14 @@ export const useDashboardStore = create<DashboardState & DashboardActions>(
         setPipPosition: (position) => set({ pipPosition: position }),
 
         setMinimapEnabled: (enabled) => set({ minimapEnabled: enabled }),
+
+        setMinimapViewMode: (mode) => set({ minimapViewMode: mode }),
+
+        toggleMinimapViewMode: () =>
+            set((state) => ({
+                minimapViewMode:
+                    state.minimapViewMode === 'lidar' ? 'map' : 'lidar',
+            })),
 
         setEnrollModalOpen: (open) => set({ enrollModalOpen: open }),
 
