@@ -6,7 +6,7 @@
 'use client';
 
 import { Compass, Map as MapIcon, Navigation, Target } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import { Switch } from '@/components/ui/switch.tsx';
 import { usePublisher, useTopic } from '@/hooks/use-topic.ts';
 import { cn } from '@/lib/utils.ts';
@@ -30,12 +30,12 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
     const setSlamSubmode = useDashboardStore((s) => s.setSlamSubmode);
     const setAutoExplore = useDashboardStore((s) => s.setAutoExplore);
 
-    const { setMode: setRosMode, isSwitching } = useModeStore();
+    const { setMode: setRosMode, isSwitching, clearError } = useModeStore();
     const cancelNav = useNavStore((s) => s.cancel);
 
     const isMappingActive = primaryMode === 'slam' && slamSubmode === 'mapping';
-
-    const [isExploring, setIsExploring] = useState(false);
+    const autoExplore = useDashboardStore((s) => s.autoExplore);
+    const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const publishExplore = usePublisher<{ data: boolean }>(
         '/explore/resume',
@@ -46,7 +46,14 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
         '/explore/status',
         'explore_lite_msgs/ExploreStatus',
         (message) => {
-            setIsExploring(message.status === ExploreState.EXPLORING);
+            setAutoExplore(message.status === ExploreState.EXPLORING);
+            if (
+                message.status === ExploreState.EXPLORING
+                && confirmTimerRef.current
+            ) {
+                clearTimeout(confirmTimerRef.current);
+                confirmTimerRef.current = null;
+            }
         },
         { enabled: isMappingActive },
     );
@@ -55,8 +62,9 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
         (mode: PrimaryMode) => {
             if (mode === primaryMode || disabled) return;
             setPrimaryMode(mode);
+            clearError();
         },
-        [primaryMode, disabled, setPrimaryMode],
+        [primaryMode, disabled, setPrimaryMode, clearError],
     );
 
     const handleSlamSubmodeChange = useCallback(
@@ -74,11 +82,21 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
 
     const handleAutoExploreToggle = useCallback(
         (enabled: boolean) => {
+            if (confirmTimerRef.current) {
+                clearTimeout(confirmTimerRef.current);
+                confirmTimerRef.current = null;
+            }
             if (!enabled) {
                 cancelNav();
             }
             publishExplore({ data: enabled });
             setAutoExplore(enabled);
+            if (enabled) {
+                confirmTimerRef.current = setTimeout(() => {
+                    setAutoExplore(false);
+                    confirmTimerRef.current = null;
+                }, 5_000);
+            }
         },
         [publishExplore, setAutoExplore, cancelNav],
     );
@@ -156,7 +174,7 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
                         </span>
                     </div>
                     <Switch
-                        checked={isExploring}
+                        checked={autoExplore}
                         onCheckedChange={handleAutoExploreToggle}
                         disabled={disabled}
                         aria-label='Toggle auto exploration'

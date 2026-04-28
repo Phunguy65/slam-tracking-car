@@ -56,14 +56,19 @@ export function useTopic<T>(
             return;
         }
 
-        // Create and subscribe to topic
         const topic = createTopic<T>(topicName, messageType, {
             throttleRate,
             latch,
             queueSize,
         });
         topicRef.current = topic;
-        topic.subscribe(handleMessage);
+
+        try {
+            topic.subscribe(handleMessage);
+        } catch {
+            topicRef.current = null;
+            return;
+        }
 
         return () => {
             topic.unsubscribe();

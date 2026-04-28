@@ -15,7 +15,8 @@ import { cn } from '@/lib/utils.ts';
 import { useDashboardStore } from '@/stores/dashboard-store.ts';
 import type { OccupancyGrid, TFMessage } from '@/types/ros-messages.ts';
 
-const MINIMAP_SIZE = 180;
+const MINIMAP_WIDTH = 240;
+const MINIMAP_HEIGHT = 140;
 const ROBOT_COLOR = 'rgba(0, 200, 255, 0.9)';
 const ROBOT_SIZE = 8;
 
@@ -122,7 +123,7 @@ function SwappableMinimapInner({
             }
 
             ctx.fillStyle = '#0a0a12';
-            ctx.fillRect(0, 0, MINIMAP_SIZE, MINIMAP_SIZE);
+            ctx.fillRect(0, 0, MINIMAP_WIDTH, MINIMAP_HEIGHT);
 
             const grid = gridRef.current;
             const pose = poseRef.current;
@@ -131,8 +132,8 @@ function SwappableMinimapInner({
                 const transform = renderOccupancyGrid(
                     ctx,
                     grid,
-                    MINIMAP_SIZE,
-                    MINIMAP_SIZE,
+                    MINIMAP_WIDTH,
+                    MINIMAP_HEIGHT,
                 );
 
                 if (pose && transform) {
@@ -143,7 +144,7 @@ function SwappableMinimapInner({
                         transform.scale,
                         transform.offsetX,
                         transform.offsetY,
-                        MINIMAP_SIZE,
+                        MINIMAP_HEIGHT,
                     );
 
                     drawRobotMarker(
@@ -158,7 +159,7 @@ function SwappableMinimapInner({
                 ctx.font = '10px system-ui, sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('No map', MINIMAP_SIZE / 2, MINIMAP_SIZE / 2);
+                ctx.fillText('No map', MINIMAP_WIDTH / 2, MINIMAP_HEIGHT / 2);
             }
 
             animationId = requestAnimationFrame(render);
@@ -207,68 +208,74 @@ function SwappableMinimapInner({
               : undefined;
 
     return (
-        <button
-            type='button'
-            className={cn(
-                'absolute bottom-20 right-4 z-20',
-                'rounded-lg overflow-hidden',
-                'bg-slate-950 border border-border/40 shadow-xl',
-                'transition-colors duration-150',
-                hovered ? 'border-primary/60' : 'border-border/40',
-            )}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            aria-label={ariaLabel}
-            onClick={handleSwap}
-            onKeyDown={handleKeyDown}
-        >
-            <div className='flex items-center justify-between px-2 py-1.5 bg-background/70 border-b border-border/30'>
-                <div className='flex items-center gap-1.5 text-xs font-medium text-foreground/80'>
-                    {isLidar ? (
-                        <Radar className='size-3.5' />
-                    ) : (
-                        <MapIcon className='size-3.5' />
-                    )}
-                    <span>{modeLabel}</span>
-                </div>
-                <div className='flex items-center gap-1'>
-                    {hovered && (
-                        <span className='text-[10px] text-muted-foreground animate-minimap-in'>
-                            click to swap
-                        </span>
-                    )}
-                    <button
-                        type='button'
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onClose();
-                        }}
-                        className='p-0.5 rounded hover:bg-background/50 text-muted-foreground hover:text-foreground transition-colors'
-                        title='Close minimap'
-                        aria-label='Close minimap'
-                    >
-                        <X className='size-3.5' />
-                    </button>
-                </div>
-            </div>
-            <div
-                className={cn('relative', animationClass)}
-                style={{ width: MINIMAP_SIZE, height: MINIMAP_SIZE }}
-            >
-                {isLidar ? (
-                    <LidarRadar compact size={MINIMAP_SIZE} />
-                ) : (
-                    <canvas
-                        ref={canvasRef}
-                        width={MINIMAP_SIZE}
-                        height={MINIMAP_SIZE}
-                        className='block'
-                        role='img'
-                        aria-label='Minimap with robot position'
-                    />
+        <div className='relative'>
+            <button
+                type='button'
+                className={cn(
+                    'cursor-pointer',
+                    'rounded-lg overflow-hidden',
+                    'bg-slate-950 border border-border/40 shadow-xl',
+                    'transition-colors duration-150',
+                    hovered ? 'border-primary/60' : 'border-border/40',
                 )}
-            </div>
-        </button>
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+                aria-label={ariaLabel}
+                onClick={handleSwap}
+                onKeyDown={handleKeyDown}
+            >
+                <div className='flex items-center justify-between px-2 py-1.5 bg-background/70 border-b border-border/30'>
+                    <div className='flex items-center gap-1.5 text-xs font-medium text-foreground/80'>
+                        {isLidar ? (
+                            <Radar className='size-3.5' />
+                        ) : (
+                            <MapIcon className='size-3.5' />
+                        )}
+                        <span>{modeLabel}</span>
+                    </div>
+                    <div className='flex items-center gap-1'>
+                        {hovered && (
+                            <span className='text-[10px] text-muted-foreground animate-minimap-in'>
+                                click to swap
+                            </span>
+                        )}
+                    </div>
+                </div>
+                <div
+                    className={cn('relative', animationClass)}
+                    style={{ width: MINIMAP_WIDTH, height: MINIMAP_HEIGHT }}
+                >
+                    {isLidar ? (
+                        <LidarRadar compact size={MINIMAP_HEIGHT} />
+                    ) : (
+                        <canvas
+                            ref={canvasRef}
+                            width={MINIMAP_WIDTH}
+                            height={MINIMAP_HEIGHT}
+                            className='block'
+                            role='img'
+                            aria-label='Minimap with robot position'
+                        />
+                    )}
+                </div>
+            </button>
+            <button
+                type='button'
+                className={cn(
+                    'absolute top-1 right-1',
+                    'p-0.5 rounded',
+                    'hover:bg-background/50 text-muted-foreground hover:text-foreground transition-colors',
+                )}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onClose();
+                }}
+                title='Close minimap'
+                aria-label='Close minimap'
+            >
+                <X className='size-3.5' />
+            </button>
+        </div>
     );
 }
 

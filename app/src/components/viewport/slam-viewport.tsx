@@ -1,8 +1,9 @@
 /**
  * SLAM viewport wrapper for dashboard.
  *
- * Renders unified map with optional goal setter overlay for navigation mode.
- * When minimap is in map mode, LiDAR radar is rendered as a main viewport overlay.
+ * Swaps between Map and LiDAR as the main viewport content so that
+ * clicking the minimap truly moves its content into the main view and
+ * vice versa. Only one is rendered at a time (not overlaid).
  */
 'use client';
 
@@ -17,14 +18,19 @@ interface SlamViewportProps {
 }
 
 export function SlamViewport({ submode, minimapViewMode }: SlamViewportProps) {
-    const showMainRadar = minimapViewMode === 'map';
+    if (minimapViewMode === 'map') {
+        return (
+            <div className='absolute inset-0 bg-slate-950'>
+                <LidarRadar className='absolute inset-0' />
+            </div>
+        );
+    }
 
     return (
         <div className='absolute inset-0 bg-slate-950'>
             <UnifiedMap showLidar={false} className='absolute inset-0'>
                 <GoalSetter enabled={submode === 'navigation'} />
             </UnifiedMap>
-            {showMainRadar && <LidarRadar className='absolute inset-0' />}
         </div>
     );
 }

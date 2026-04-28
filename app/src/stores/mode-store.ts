@@ -97,12 +97,30 @@ export const useModeStore = create<ModeStore>((set, get) => ({
             const service = getSetModeService();
             const robotMode = slamModeToRobotMode(mode);
 
+            const TIMEOUT_MS = 10_000;
+            let settled = false;
+
             const response = await new Promise<SetModeResponse>(
                 (resolve, reject) => {
+                    const timer = setTimeout(() => {
+                        settled = true;
+                        reject(new Error('Mode switch timed out'));
+                    }, TIMEOUT_MS);
+
                     service.callService(
                         { mode: robotMode },
-                        (res: SetModeResponse) => resolve(res),
-                        (err: string) => reject(new Error(err)),
+                        (res: SetModeResponse) => {
+                            if (!settled) {
+                                clearTimeout(timer);
+                                resolve(res);
+                            }
+                        },
+                        (err: string) => {
+                            if (!settled) {
+                                clearTimeout(timer);
+                                reject(new Error(err));
+                            }
+                        },
                     );
                 },
             );

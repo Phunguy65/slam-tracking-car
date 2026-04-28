@@ -53,8 +53,6 @@ export function UnifiedDashboard() {
 
                     {isSlam && pipEnabled && <PictureInPicture />}
 
-                    {minimapEnabled && <SwappableMinimap />}
-
                     <div className='absolute inset-0 pointer-events-none p-4'>
                         <div className='flex items-start justify-between pointer-events-auto'>
                             <ModeController disabled={!isConnected} />
@@ -62,6 +60,7 @@ export function UnifiedDashboard() {
 
                         <div className='absolute bottom-4 left-4 right-4 flex items-end justify-between'>
                             <div className='flex flex-col gap-3 pointer-events-auto max-w-xs'>
+                                {minimapEnabled && <SwappableMinimap />}
                                 {isSlam && <SlamPanels />}
                                 {isTracking && <TrackingPanels />}
                             </div>
