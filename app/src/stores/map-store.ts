@@ -19,6 +19,8 @@ import type {
 interface MapState {
     /** Available maps from the maps directory */
     availableMaps: string[];
+    /** Absolute path to the maps directory on the robot */
+    mapsDirectory: string | null;
     /** Currently loaded map name */
     currentMap: string | null;
     /** Whether we're fetching the map list */
@@ -68,6 +70,7 @@ function getLoadMapService() {
 
 export const useMapStore = create<MapStore>((set, _get) => ({
     availableMaps: [],
+    mapsDirectory: null,
     currentMap: null,
     isFetchingList: false,
     isLoadingMap: false,
@@ -97,6 +100,7 @@ export const useMapStore = create<MapStore>((set, _get) => ({
             if (response.success) {
                 set({
                     availableMaps: response.maps,
+                    mapsDirectory: response.maps_directory || null,
                     isFetchingList: false,
                 });
             } else {

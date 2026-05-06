@@ -6,15 +6,16 @@
 'use client';
 
 import { Compass, Map as MapIcon, Navigation, Target } from 'lucide-react';
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { Switch } from '@/components/ui/switch.tsx';
-import { usePublisher, useTopic } from '@/hooks/use-topic.ts';
+import { useTopic } from '@/hooks/use-topic.ts';
 import { cn } from '@/lib/utils.ts';
 import {
     type PrimaryMode,
     type SlamSubmode,
     useDashboardStore,
 } from '@/stores/dashboard-store.ts';
+import { useExploreStore } from '@/stores/explore-store.ts';
 import { useModeStore } from '@/stores/mode-store.ts';
 import { useNavStore } from '@/stores/nav-store.ts';
 import { ExploreState, type ExploreStatus } from '@/types/ros-messages.ts';
@@ -32,28 +33,16 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
 
     const { setMode: setRosMode, isSwitching, clearError } = useModeStore();
     const cancelNav = useNavStore((s) => s.cancel);
+    const { sendGoal: startExplore, cancel: stopExplore } = useExploreStore();
 
     const isMappingActive = primaryMode === 'slam' && slamSubmode === 'mapping';
     const autoExplore = useDashboardStore((s) => s.autoExplore);
-    const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const publishExplore = usePublisher<{ data: boolean }>(
-        '/explore/resume',
-        'std_msgs/Bool',
-    );
 
     useTopic<ExploreStatus>(
         '/explore/status',
         'explore_lite_msgs/ExploreStatus',
         (message) => {
             setAutoExplore(message.status === ExploreState.EXPLORING);
-            if (
-                message.status === ExploreState.EXPLORING
-                && confirmTimerRef.current
-            ) {
-                clearTimeout(confirmTimerRef.current);
-                confirmTimerRef.current = null;
-            }
         },
         { enabled: isMappingActive },
     );
@@ -82,23 +71,15 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
 
     const handleAutoExploreToggle = useCallback(
         (enabled: boolean) => {
-            if (confirmTimerRef.current) {
-                clearTimeout(confirmTimerRef.current);
-                confirmTimerRef.current = null;
-            }
             if (!enabled) {
+                stopExplore();
                 cancelNav();
+            } else {
+                startExplore();
             }
-            publishExplore({ data: enabled });
             setAutoExplore(enabled);
-            if (enabled) {
-                confirmTimerRef.current = setTimeout(() => {
-                    setAutoExplore(false);
-                    confirmTimerRef.current = null;
-                }, 5_000);
-            }
         },
-        [publishExplore, setAutoExplore, cancelNav],
+        [startExplore, stopExplore, cancelNav, setAutoExplore],
     );
 
     const isSlam = primaryMode === 'slam';

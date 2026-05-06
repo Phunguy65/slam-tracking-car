@@ -44,6 +44,12 @@ static const unsigned long TIME_SYNC_INTERVAL_MS = 30000;
 static int ping_fail_count = 0;
 static const int PING_FAIL_THRESHOLD = 3;
 
+/** True once a time sync session has been established with the micro-ROS agent.
+ *  All timestamped publishers gate on this flag to prevent Nav2/EKF from
+ *  receiving messages with stale or zero timestamps before the clock is synced. */
+static bool time_synced = false;
+static const unsigned long TIME_SYNC_STALE_THRESHOLD_MS = 5000;
+
 // ── micro-ROS entities ──────────────────────────────────────────────────────
 static rcl_allocator_t allocator;
 static rclc_support_t support;
@@ -78,6 +84,8 @@ static double joint_efforts_data[1];
 
 static rosidl_runtime_c__String servo_cmd_names_data[1];
 static double servo_cmd_positions_data[1];
+static double servo_cmd_velocities_data[1];
+static double servo_cmd_efforts_data[1];
 
 // ── LaserScan data storage ──────────────────────────────────────────────────
 static float scan_ranges_data[SCAN_POINTS];
@@ -158,6 +166,7 @@ void ros_bridge_spin() {
                             "[micro-ROS] Agent lost (%d consecutive fails) — stopping motors\n",
                             ping_fail_count);
                         ros_state = ROS_AGENT_DISCONNECTED;
+                        time_synced = false;
                         ping_fail_count = 0;
                         motors_stop();
                         destroy_micro_ros();
@@ -167,13 +176,21 @@ void ros_bridge_spin() {
 
                     if (now_ms - last_time_sync_ms >= TIME_SYNC_INTERVAL_MS) {
                         last_time_sync_ms = now_ms;
-                        if (rmw_uros_sync_session(500)) {
+                        if (rmw_uros_sync_session(50)) {
                             int64_t now_ns = rmw_uros_epoch_nanos();
                             Serial.printf("[micro-ROS] Time re-synced — epoch=%lld\n",
                                           (long long)now_ns);
+                            time_synced = true;
                         } else {
                             ros_log("micro-ROS", "WARNING: periodic time sync failed");
                         }
+                    }
+                    /* Mark time stale if no successful sync for too long */
+                    if (time_synced &&
+                        (now_ms - last_time_sync_ms > TIME_SYNC_STALE_THRESHOLD_MS)) {
+                        time_synced = false;
+                        ros_log("micro-ROS",
+                                "WARNING: time sync stale — timestamps may be invalid");
                     }
                 }
                 break;
@@ -272,12 +289,19 @@ static void setup_messages() {
     joint_states_msg.effort.capacity = 1;
 
     // ── JointState subscriber (pre-allocated for incoming messages) ──
+    rosidl_runtime_c__String__assign(&servo_cmd_names_data[0], "camera_pan_joint");
     servo_cmd_msg.name.data = servo_cmd_names_data;
     servo_cmd_msg.name.size = 0;
     servo_cmd_msg.name.capacity = 1;
     servo_cmd_msg.position.data = servo_cmd_positions_data;
     servo_cmd_msg.position.size = 0;
     servo_cmd_msg.position.capacity = 1;
+    servo_cmd_msg.velocity.data = servo_cmd_velocities_data;
+    servo_cmd_msg.velocity.size = 0;
+    servo_cmd_msg.velocity.capacity = 1;
+    servo_cmd_msg.effort.data = servo_cmd_efforts_data;
+    servo_cmd_msg.effort.size = 0;
+    servo_cmd_msg.effort.capacity = 1;
 }
 
 // ── Teardown in reverse-init order ─────────────────────────────────────────
@@ -337,7 +361,7 @@ static bool setup_micro_ros() {
 
     bool synced = false;
     for (int attempt = 0; attempt < 5; attempt++) {
-        if (rmw_uros_sync_session(1000)) {
+        if (rmw_uros_sync_session(200)) {
             synced = true;
             break;
         }
@@ -347,6 +371,7 @@ static bool setup_micro_ros() {
     if (synced) {
         int64_t now_ns = rmw_uros_epoch_nanos();
         ros_logf("micro-ROS", "Time synced — epoch=%lld", (long long)now_ns);
+        time_synced = true;
     } else {
         ros_log("micro-ROS",
                 "CRITICAL: time sync failed after 5 attempts — timestamps will be wrong");
@@ -464,6 +489,7 @@ static void servo_cmd_callback(const void* msg_in) {
 
     for (size_t i = 0; i < msg->name.size && i < msg->position.size; i++) {
         const char* name = msg->name.data[i].data;
+        if (name == NULL) continue;
         float rad = (float)msg->position.data[i];
 
         if (strcmp(name, "camera_pan_joint") == 0) {
@@ -479,10 +505,9 @@ static void fast_timer_callback(rcl_timer_t* timer, int64_t last_call_time) {
     if (timer == NULL) return;
 
     safety_check();
+    encoders_update_odometry();
 
     fill_timestamp(&odom_msg.header.stamp);
-
-    encoders_update_odometry();
 
     odom_msg.pose.pose.position.x = encoders_get_x();
     odom_msg.pose.pose.position.y = encoders_get_y();

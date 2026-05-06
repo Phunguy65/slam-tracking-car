@@ -17,4 +17,4 @@ pre-commit:
 commit-msg:
   commands:
     commitlint:
-      run: cd app && npx commitlint --edit ../{1}
+      run: cd app && npx commitlint --edit

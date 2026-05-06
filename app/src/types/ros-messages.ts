@@ -73,6 +73,14 @@ export interface Time {
 // sensor_msgs
 // ─────────────────────────────────────────────────────────────────────────────
 
+export interface JointState {
+    header: Header;
+    name: string[];
+    position: number[];
+    velocity?: number[];
+    effort?: number[];
+}
+
 export interface CompressedImage {
     header: Header;
     format: string; // e.g., 'jpeg', 'png'
@@ -182,15 +190,33 @@ export type NavigateToPoseResult = Record<string, never>;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const ExploreState = {
-    IDLE: 0,
-    EXPLORING: 1,
-    FINISHED: 2,
-    FAILED: 3,
+    STARTED: 'exploration_started',
+    EXPLORING: 'exploration_in_progress',
+    PAUSED: 'exploration_paused',
+    COMPLETE: 'exploration_complete',
+    RETURNING: 'returning_to_origin',
+    RETURNED: 'returned_to_origin',
 } as const;
 
 export interface ExploreStatus {
-    status: number;
+    status: string;
 }
+
+/**
+ * explore_lite /explore/explore action interfaces.
+ *
+ * Goal: empty — explore_lite starts exploration immediately on goal receipt.
+ * Feedback: current robot pose + list of frontier centroids.
+ * Result: empty — exploration runs until cancelled or frontiers exhausted.
+ */
+export type ExploreGoal = Record<string, never>;
+
+export interface ExploreFeedback {
+    base_pose: PoseStamped;
+    frontiers: PoseStamped[];
+}
+
+export type ExploreResult = Record<string, never>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // slam_toolbox services
@@ -262,6 +288,7 @@ export type ListMapsRequest = Record<string, never>;
 
 export interface ListMapsResponse {
     maps: string[];
+    maps_directory: string;
     success: boolean;
     message: string;
 }

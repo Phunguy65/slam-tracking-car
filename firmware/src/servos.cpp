@@ -26,8 +26,7 @@ static float servo_pan_rad = 0.0f;
 
 void servos_init() {
 #ifndef UNIT_TEST
-    // ESP32Servo handles LEDC channel allocation internally
-    // Use 3-arg attach: pin, min_pulse_us, max_pulse_us
+    ESP32PWM::allocateTimer(2);
     servo_pan.attach(SERVO_PAN_PIN, 500, 2400);
 
     // Center servo on startup

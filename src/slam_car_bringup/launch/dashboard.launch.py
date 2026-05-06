@@ -194,6 +194,35 @@ def generate_launch_description():
         namespace="",
     )
 
+    behavior_server = LifecycleNode(
+        package="nav2_behaviors",
+        executable="behavior_server",
+        name="behavior_server",
+        output="screen",
+        parameters=[nav2_params, {"use_sim_time": False}],
+        namespace="",
+    )
+
+    explore_nav2_lifecycle_manager = Node(
+        package="nav2_lifecycle_manager",
+        executable="lifecycle_manager",
+        name="explore_lifecycle_manager",
+        output="screen",
+        parameters=[
+            {
+                "use_sim_time": False,
+                "autostart": True,
+                "node_names": [
+                    "controller_server",
+                    "planner_server",
+                    "bt_navigator",
+                    "behavior_server",
+                ],
+            }
+        ],
+        condition=IfCondition(LaunchConfiguration("use_explore")),
+    )
+
     # Note: We do NOT include lifecycle_manager here because
     # map_manager_node handles lifecycle transitions directly.
     # This gives us fine-grained control over when Nav2 activates.
@@ -218,5 +247,7 @@ def generate_launch_description():
             controller_server,
             planner_server,
             bt_navigator,
+            behavior_server,
+            explore_nav2_lifecycle_manager,
         ]
     )

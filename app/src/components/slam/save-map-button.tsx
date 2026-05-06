@@ -6,6 +6,7 @@
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button.tsx';
 import { useService } from '@/hooks/use-service.ts';
+import { useMapStore } from '@/stores/map-store.ts';
 import { useRosStore } from '@/stores/ros-store.ts';
 
 export function SaveMapButton() {
@@ -13,6 +14,8 @@ export function SaveMapButton() {
     const [saving, setSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<string | null>(null);
     const status = useRosStore((s) => s.status);
+    const mapsDirectory = useMapStore((s) => s.mapsDirectory);
+    const fetchMaps = useMapStore((s) => s.fetchMaps);
 
     const { call: saveMap } = useService<
         { name: { data: string } },
@@ -20,15 +23,20 @@ export function SaveMapButton() {
     >('/slam_toolbox/save_map', 'slam_toolbox/SaveMap');
 
     const handleSave = useCallback(async () => {
-        const name = mapName.trim() || `map_${Date.now()}`;
+        const baseName = mapName.trim() || `map_${Date.now()}`;
+        const fullName = mapsDirectory
+            ? `${mapsDirectory}/${baseName}`
+            : baseName;
+
         setSaving(true);
         setLastSaved(null);
 
         try {
-            const response = await saveMap({ name: { data: name } });
+            const response = await saveMap({ name: { data: fullName } });
             if (response.result === 0) {
-                setLastSaved(name);
+                setLastSaved(baseName);
                 setMapName('');
+                await fetchMaps();
             } else {
                 console.error(
                     '[SaveMapButton] Save failed with result:',
@@ -40,7 +48,7 @@ export function SaveMapButton() {
         } finally {
             setSaving(false);
         }
-    }, [mapName, saveMap]);
+    }, [mapName, mapsDirectory, saveMap, fetchMaps]);
 
     return (
         <div className='space-y-2'>

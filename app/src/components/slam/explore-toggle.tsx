@@ -5,7 +5,8 @@
 
 import { useCallback, useState } from 'react';
 import { Switch } from '@/components/ui/switch.tsx';
-import { usePublisher, useTopic } from '@/hooks/use-topic.ts';
+import { useTopic } from '@/hooks/use-topic.ts';
+import { useExploreStore } from '@/stores/explore-store.ts';
 import { useNavStore } from '@/stores/nav-store.ts';
 import { useRosStore } from '@/stores/ros-store.ts';
 import { ExploreState, type ExploreStatus } from '@/types/ros-messages.ts';
@@ -14,11 +15,7 @@ export function ExploreToggle() {
     const status = useRosStore((s) => s.status);
     const [isExploring, setIsExploring] = useState(false);
     const cancelNav = useNavStore((s) => s.cancel);
-
-    const publishExplore = usePublisher<{ data: boolean }>(
-        '/explore/resume',
-        'std_msgs/Bool',
-    );
+    const { sendGoal: startExplore, cancel: stopExplore } = useExploreStore();
 
     useTopic<ExploreStatus>(
         '/explore/status',
@@ -31,11 +28,13 @@ export function ExploreToggle() {
     const handleToggle = useCallback(
         (enabled: boolean) => {
             if (!enabled) {
+                stopExplore();
                 cancelNav();
+            } else {
+                startExplore();
             }
-            publishExplore({ data: enabled });
         },
-        [publishExplore, cancelNav],
+        [startExplore, stopExplore, cancelNav],
     );
 
     return (

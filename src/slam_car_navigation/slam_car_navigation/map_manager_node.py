@@ -8,18 +8,19 @@ Provides services:
 
 Uses Nav2 lifecycle manager to start/stop navigation stack dynamically.
 """
+
 import os
 from pathlib import Path
 
 import rclpy
-from rclpy.node import Node
-from rclpy.callback_groups import ReentrantCallbackGroup
-from nav2_msgs.srv import LoadMap as Nav2LoadMap
+from lifecycle_msgs.msg import Transition
 from lifecycle_msgs.srv import ChangeState, GetState
-from lifecycle_msgs.msg import Transition, State
+from nav2_msgs.srv import LoadMap as Nav2LoadMap
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.node import Node
 
-from slam_car_interfaces.srv import ListMaps, LoadMap, SetMode
 from slam_car_interfaces.msg import RobotMode
+from slam_car_interfaces.srv import ListMaps, LoadMap, SetMode
 
 
 class MapManagerNode(Node):
@@ -82,9 +83,16 @@ class MapManagerNode(Node):
         """Find the maps directory in the workspace."""
         # Try common locations
         candidates = [
-            Path("/home/PNguyen/Workspace/MyProject/slam-tracking-car/src/slam_car_bringup/maps"),
+            Path(
+                "/home/PNguyen/Workspace/MyProject/slam-tracking-car/src/slam_car_bringup/maps"
+            ),
             Path.cwd() / "src" / "slam_car_bringup" / "maps",
-            Path.cwd() / "install" / "slam_car_bringup" / "share" / "slam_car_bringup" / "maps",
+            Path.cwd()
+            / "install"
+            / "slam_car_bringup"
+            / "share"
+            / "slam_car_bringup"
+            / "maps",
         ]
 
         for candidate in candidates:
@@ -147,6 +155,7 @@ class MapManagerNode(Node):
                     valid_maps.append(map_name)
 
             response.maps = sorted(valid_maps)
+            response.maps_directory = str(self.maps_directory)
             response.success = True
             response.message = f"Found {len(valid_maps)} maps"
 
@@ -198,7 +207,9 @@ class MapManagerNode(Node):
                     self.get_logger().info(f"Successfully loaded map: {map_name}")
                 else:
                     response.success = False
-                    response.message = f"Map server returned error code: {result.result}"
+                    response.message = (
+                        f"Map server returned error code: {result.result}"
+                    )
                     self.get_logger().error(f"Map server error: {result.result}")
             else:
                 response.success = False
@@ -225,7 +236,9 @@ class MapManagerNode(Node):
         # Validate mode
         if new_mode not in [RobotMode.SLAM_MAPPING, RobotMode.NAVIGATION]:
             response.success = False
-            response.message = f"Invalid mode: {new_mode}. Use SLAM_MAPPING(2) or NAVIGATION(3)"
+            response.message = (
+                f"Invalid mode: {new_mode}. Use SLAM_MAPPING(2) or NAVIGATION(3)"
+            )
             return response
 
         if new_mode == previous_mode:
@@ -262,11 +275,20 @@ class MapManagerNode(Node):
 
     def _activate_nav2_stack(self) -> tuple[bool, str]:
         """Activate Nav2 nodes via lifecycle transitions."""
-        nodes_to_activate = ["map_server", "amcl", "controller_server", "planner_server", "bt_navigator"]
+        nodes_to_activate = [
+            "map_server",
+            "amcl",
+            "controller_server",
+            "planner_server",
+            "bt_navigator",
+        ]
 
         for node_name in nodes_to_activate:
             # Configure then activate
-            for transition_id in [Transition.TRANSITION_CONFIGURE, Transition.TRANSITION_ACTIVATE]:
+            for transition_id in [
+                Transition.TRANSITION_CONFIGURE,
+                Transition.TRANSITION_ACTIVATE,
+            ]:
                 success = self._change_node_state(node_name, transition_id)
                 if not success:
                     return False, f"Failed to transition {node_name}"
@@ -276,15 +298,26 @@ class MapManagerNode(Node):
     def _deactivate_nav2_stack(self) -> tuple[bool, str]:
         """Deactivate Nav2 nodes via lifecycle transitions."""
         # Reverse order for deactivation
-        nodes_to_deactivate = ["bt_navigator", "planner_server", "controller_server", "amcl", "map_server"]
+        nodes_to_deactivate = [
+            "bt_navigator",
+            "planner_server",
+            "controller_server",
+            "amcl",
+            "map_server",
+        ]
 
         for node_name in nodes_to_deactivate:
             # Deactivate then cleanup
-            for transition_id in [Transition.TRANSITION_DEACTIVATE, Transition.TRANSITION_CLEANUP]:
+            for transition_id in [
+                Transition.TRANSITION_DEACTIVATE,
+                Transition.TRANSITION_CLEANUP,
+            ]:
                 success = self._change_node_state(node_name, transition_id)
                 if not success:
                     # Log but continue - some nodes may already be inactive
-                    self.get_logger().warn(f"Transition failed for {node_name}, continuing...")
+                    self.get_logger().warn(
+                        f"Transition failed for {node_name}, continuing..."
+                    )
 
         return True, "Nav2 stack deactivated"
 

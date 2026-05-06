@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { ManualJoystick } from '@/components/slam/manual-joystick.tsx';
+import { ServoPanControl } from '@/components/slam/servo-pan-control.tsx';
 import { PictureInPicture } from '@/components/viewport/picture-in-picture.tsx';
 import { PrimaryViewport } from '@/components/viewport/primary-viewport.tsx';
 import { SwappableMinimap } from '@/components/viewport/swappable-minimap.tsx';
@@ -31,6 +32,7 @@ export function UnifiedDashboard() {
     const minimapViewMode = useDashboardStore((s) => s.minimapViewMode);
     const autoExplore = useDashboardStore((s) => s.autoExplore);
     const manualOverride = useDashboardStore((s) => s.manualOverride);
+    const trackingEnabled = useDashboardStore((s) => s.trackingEnabled);
 
     const [logOpen, setLogOpen] = useState(false);
 
@@ -72,6 +74,12 @@ export function UnifiedDashboard() {
                                 )}
                             </div>
                         </div>
+
+                        {!trackingEnabled && (
+                            <div className='absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto'>
+                                <ServoPanControl />
+                            </div>
+                        )}
                     </div>
                 </div>
 

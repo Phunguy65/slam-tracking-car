@@ -142,12 +142,10 @@
 
 // ── LEDC PWM Channels ──────────────────────────────────────────────────────────
 // Channels 0-2: managed by manual ledcSetup()/ledcAttachPin()
-// Channel 3: managed by ESP32Servo — MUST pass to servo.attach(pin, min, max, CH)
-// Note: Tilt servo (channel 4) removed per design decision
+// Servo pan: managed by ESP32Servo on timer 2 (auto-allocated channel)
 #define LEDC_CH_MOTOR_LEFT 0   // 1 kHz, 8-bit
 #define LEDC_CH_MOTOR_RIGHT 1  // 1 kHz, 8-bit
 #define LEDC_CH_LIDAR_MOTOR 2  // 25 kHz, 8-bit
-#define LEDC_CH_SERVO_PAN 3    // 50 Hz, 16-bit (ESP32Servo)
 
 // ── LiDAR constants ────────────────────────────────────────────────────────────
 #define LIDAR_UART_NUM 2
