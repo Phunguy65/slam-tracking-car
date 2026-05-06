@@ -37,8 +37,8 @@ def generate_launch_description():
     )
     use_explore_arg = DeclareLaunchArgument(
         "use_explore",
-        default_value="true",
-        description="Enable m-explore for autonomous frontier exploration",
+        default_value="false",
+        description="Opt in to m-explore autonomous frontier exploration",
     )
     maps_directory_arg = DeclareLaunchArgument(
         "maps_directory",
