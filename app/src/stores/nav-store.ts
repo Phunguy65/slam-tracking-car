@@ -6,11 +6,7 @@
  */
 
 import { create } from 'zustand';
-import {
-    createActionClient,
-    createGoal,
-    isConnected,
-} from '@/lib/ros-client/index.ts';
+import { createAction, isConnected } from '@/lib/ros-client/index.ts';
 import type {
     NavigateToPoseFeedback,
     NavigateToPoseGoal,
@@ -32,30 +28,24 @@ interface NavStore extends NavState {
     reset: () => void;
 }
 
-let actionClient: ReturnType<
-    typeof createActionClient<
+let action: ReturnType<
+    typeof createAction<
         NavigateToPoseGoal,
         NavigateToPoseFeedback,
         NavigateToPoseResult
     >
 > | null = null;
-let currentGoalHandle: ReturnType<
-    typeof createGoal<
-        NavigateToPoseGoal,
-        NavigateToPoseFeedback,
-        NavigateToPoseResult
-    >
-> | null = null;
+let currentGoalId: string | null = null;
 
-function getActionClient() {
-    if (!actionClient) {
-        actionClient = createActionClient<
+function getAction() {
+    if (!action) {
+        action = createAction<
             NavigateToPoseGoal,
             NavigateToPoseFeedback,
             NavigateToPoseResult
         >('/navigate_to_pose', 'nav2_msgs/NavigateToPose');
     }
-    return actionClient;
+    return action;
 }
 
 export const useNavStore = create<NavStore>((set) => ({
@@ -71,9 +61,9 @@ export const useNavStore = create<NavStore>((set) => ({
             return;
         }
 
-        // Cancel any existing goal
-        if (currentGoalHandle) {
-            currentGoalHandle.cancel();
+        if (currentGoalId) {
+            getAction().cancelGoal(currentGoalId);
+            currentGoalId = null;
         }
 
         set({
@@ -84,45 +74,48 @@ export const useNavStore = create<NavStore>((set) => ({
             currentGoal: pose,
         });
 
-        const client = getActionClient();
-        const goal = createGoal<
-            NavigateToPoseGoal,
-            NavigateToPoseFeedback,
-            NavigateToPoseResult
-        >(client, { pose });
+        const goalId = getAction().sendGoal(
+            { pose },
+            (result: NavigateToPoseResult) => {
+                set({
+                    isExecuting: false,
+                    feedback: null,
+                    result,
+                    error: null,
+                    currentGoal: null,
+                });
+                currentGoalId = null;
+            },
+            (feedback: NavigateToPoseFeedback) => {
+                set({ feedback });
+            },
+            (error: string) => {
+                set({
+                    isExecuting: false,
+                    error,
+                    currentGoal: null,
+                });
+                currentGoalId = null;
+            },
+        );
 
-        currentGoalHandle = goal;
-
-        goal.on('feedback', (feedback: NavigateToPoseFeedback) => {
-            set({ feedback });
-        });
-
-        goal.on('result', (result: NavigateToPoseResult) => {
+        if (!goalId) {
             set({
                 isExecuting: false,
-                feedback: null,
-                result,
+                error: 'Failed to send navigation goal',
                 currentGoal: null,
             });
-            currentGoalHandle = null;
-        });
+            currentGoalId = null;
+            return;
+        }
 
-        goal.on('timeout', () => {
-            set({
-                isExecuting: false,
-                error: 'Action timed out',
-                currentGoal: null,
-            });
-            currentGoalHandle = null;
-        });
-
-        goal.send();
+        currentGoalId = goalId;
     },
 
     cancel: () => {
-        if (currentGoalHandle) {
-            currentGoalHandle.cancel();
-            currentGoalHandle = null;
+        if (currentGoalId) {
+            getAction().cancelGoal(currentGoalId);
+            currentGoalId = null;
             set({
                 isExecuting: false,
                 error: 'Cancelled',
@@ -132,9 +125,9 @@ export const useNavStore = create<NavStore>((set) => ({
     },
 
     reset: () => {
-        if (currentGoalHandle) {
-            currentGoalHandle.cancel();
-            currentGoalHandle = null;
+        if (currentGoalId) {
+            getAction().cancelGoal(currentGoalId);
+            currentGoalId = null;
         }
         set({
             isExecuting: false,

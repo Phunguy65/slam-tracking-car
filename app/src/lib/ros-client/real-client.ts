@@ -159,31 +159,40 @@ export function createService<TReq, TRes>(
     });
 }
 
-/**
- * Create an action client.
- */
-export function createActionClient<TGoal, TFeedback, TResult>(
-    serverName: string,
-    actionName: string,
-): ROSLIB.ActionClient<TGoal, TFeedback, TResult> {
-    const ros = getRos();
-    return new ROSLIB.ActionClient({
-        ros,
-        serverName,
-        actionName,
-    });
+export interface RosAction<TGoal, TFeedback, TResult> {
+    sendGoal: (
+        goal: TGoal,
+        resultCallback: (result: TResult) => void,
+        feedbackCallback?: (feedback: TFeedback) => void,
+        failedCallback?: (error: string) => void,
+    ) => string | undefined;
+    cancelGoal: (id: string) => void;
+    cancelAllGoals: () => void;
+}
+
+type RosActionConstructor = new <TGoal, TFeedback, TResult>(options: {
+    ros: ROSLIB.Ros;
+    name: string;
+    actionType: string;
+}) => RosAction<TGoal, TFeedback, TResult>;
+
+function getRosActionConstructor(): RosActionConstructor {
+    return (ROSLIB as unknown as { Action: RosActionConstructor }).Action;
 }
 
 /**
- * Create a goal for an action client.
+ * Create a ROS 2 action client.
  */
-export function createGoal<TGoal, TFeedback, TResult>(
-    actionClient: ROSLIB.ActionClient<TGoal, TFeedback, TResult>,
-    goalMessage: TGoal,
-): ROSLIB.Goal<TGoal, TFeedback, TResult> {
-    return new ROSLIB.Goal({
-        actionClient,
-        goalMessage,
+export function createAction<TGoal, TFeedback, TResult>(
+    name: string,
+    actionType: string,
+): RosAction<TGoal, TFeedback, TResult> {
+    const ros = getRos();
+    const Action = getRosActionConstructor();
+    return new Action<TGoal, TFeedback, TResult>({
+        ros,
+        name,
+        actionType,
     });
 }
 

@@ -4,11 +4,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import {
-    createActionClient,
-    createGoal,
-    isConnected,
-} from '@/lib/ros-client/index.ts';
+import { createAction, isConnected } from '@/lib/ros-client/index.ts';
 
 interface ActionState<TFeedback, TResult> {
     /** Whether an action is currently executing */
@@ -46,21 +42,19 @@ export function useAction<TGoal, TFeedback, TResult>(
         error: null,
     });
 
-    const clientRef = useRef<ReturnType<
-        typeof createActionClient<TGoal, TFeedback, TResult>
+    const actionRef = useRef<ReturnType<
+        typeof createAction<TGoal, TFeedback, TResult>
     > | null>(null);
-    const goalRef = useRef<ReturnType<
-        typeof createGoal<TGoal, TFeedback, TResult>
-    > | null>(null);
+    const goalIdRef = useRef<string | null>(null);
 
-    const getClient = useCallback(() => {
-        if (!clientRef.current) {
-            clientRef.current = createActionClient<TGoal, TFeedback, TResult>(
+    const getAction = useCallback(() => {
+        if (!actionRef.current) {
+            actionRef.current = createAction<TGoal, TFeedback, TResult>(
                 serverName,
                 actionType,
             );
         }
-        return clientRef.current;
+        return actionRef.current;
     }, [serverName, actionType]);
 
     const sendGoal = useCallback(
@@ -73,11 +67,11 @@ export function useAction<TGoal, TFeedback, TResult>(
                 return;
             }
 
-            const client = getClient();
+            const action = getAction();
 
-            // Cancel any existing goal
-            if (goalRef.current) {
-                goalRef.current.cancel();
+            if (goalIdRef.current) {
+                action.cancelGoal(goalIdRef.current);
+                goalIdRef.current = null;
             }
 
             setState({
@@ -87,52 +81,56 @@ export function useAction<TGoal, TFeedback, TResult>(
                 error: null,
             });
 
-            const goal = createGoal<TGoal, TFeedback, TResult>(
-                client,
+            const goalId = action.sendGoal(
                 goalMessage,
+                (result: TResult) => {
+                    setState({
+                        isExecuting: false,
+                        feedback: null,
+                        result,
+                        error: null,
+                    });
+                    goalIdRef.current = null;
+                },
+                (feedback: TFeedback) => {
+                    setState((s) => ({ ...s, feedback }));
+                },
+                (error: string) => {
+                    setState((s) => ({
+                        ...s,
+                        isExecuting: false,
+                        error,
+                    }));
+                    goalIdRef.current = null;
+                },
             );
 
-            goalRef.current = goal;
-
-            goal.on('feedback', (feedback: TFeedback) => {
-                setState((s) => ({ ...s, feedback }));
-            });
-
-            goal.on('result', (result: TResult) => {
-                setState({
-                    isExecuting: false,
-                    feedback: null,
-                    result,
-                    error: null,
-                });
-                goalRef.current = null;
-            });
-
-            goal.on('timeout', () => {
+            if (!goalId) {
                 setState((s) => ({
                     ...s,
                     isExecuting: false,
-                    error: 'Action timed out',
+                    error: 'Failed to send action goal',
                 }));
-                goalRef.current = null;
-            });
+                goalIdRef.current = null;
+                return;
+            }
 
-            goal.send();
+            goalIdRef.current = goalId;
         },
-        [getClient],
+        [getAction],
     );
 
     const cancel = useCallback(() => {
-        if (goalRef.current) {
-            goalRef.current.cancel();
-            goalRef.current = null;
+        if (goalIdRef.current) {
+            getAction().cancelGoal(goalIdRef.current);
+            goalIdRef.current = null;
             setState((s) => ({
                 ...s,
                 isExecuting: false,
                 error: 'Cancelled',
             }));
         }
-    }, []);
+    }, [getAction]);
 
     return {
         ...state,

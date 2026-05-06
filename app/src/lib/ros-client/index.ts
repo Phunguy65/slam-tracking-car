@@ -4,10 +4,11 @@
  * Singleton that manages the rosbridge WebSocket connection.
  * Uses roslibjs under the hood.
  */
+
+export type { RosAction } from './real-client.ts';
 export {
     connect,
-    createActionClient,
-    createGoal,
+    createAction,
     createService,
     createTopic,
     disconnect,

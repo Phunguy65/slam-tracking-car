@@ -202,22 +202,6 @@ export interface ExploreStatus {
     status: string;
 }
 
-/**
- * explore_lite /explore/explore action interfaces.
- *
- * Goal: empty — explore_lite starts exploration immediately on goal receipt.
- * Feedback: current robot pose + list of frontier centroids.
- * Result: empty — exploration runs until cancelled or frontiers exhausted.
- */
-export type ExploreGoal = Record<string, never>;
-
-export interface ExploreFeedback {
-    base_pose: PoseStamped;
-    frontiers: PoseStamped[];
-}
-
-export type ExploreResult = Record<string, never>;
-
 // ─────────────────────────────────────────────────────────────────────────────
 // slam_toolbox services
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,48 +1,66 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
-vi.mock('roslib', () => ({
-    default: {
-        Ros: vi.fn().mockImplementation(() => ({
+vi.mock('roslib', () => {
+    function createRosMock() {
+        return {
             on: vi.fn(),
             connect: vi.fn(),
             close: vi.fn(),
-        })),
-        Topic: vi.fn().mockImplementation(() => ({
+        };
+    }
+
+    function createTopicMock() {
+        return {
             subscribe: vi.fn(),
             unsubscribe: vi.fn(),
             publish: vi.fn(),
-        })),
-        Service: vi.fn().mockImplementation(() => ({
+        };
+    }
+
+    function createServiceMock() {
+        return {
             callService: vi.fn(),
-        })),
-        ActionClient: vi.fn().mockImplementation(() => ({})),
-        Goal: vi.fn().mockImplementation(() => ({
+        };
+    }
+
+    function createActionMock() {
+        return {
+            sendGoal: vi.fn(),
+            cancelGoal: vi.fn(),
+            cancelAllGoals: vi.fn(),
+        };
+    }
+
+    function createActionClientMock() {
+        return {};
+    }
+
+    function createGoalMock() {
+        return {
             send: vi.fn(),
             cancel: vi.fn(),
             on: vi.fn(),
-        })),
-    },
-    Ros: vi.fn().mockImplementation(() => ({
-        on: vi.fn(),
-        connect: vi.fn(),
-        close: vi.fn(),
-    })),
-    Topic: vi.fn().mockImplementation(() => ({
-        subscribe: vi.fn(),
-        unsubscribe: vi.fn(),
-        publish: vi.fn(),
-    })),
-    Service: vi.fn().mockImplementation(() => ({
-        callService: vi.fn(),
-    })),
-    ActionClient: vi.fn().mockImplementation(() => ({})),
-    Goal: vi.fn().mockImplementation(() => ({
-        send: vi.fn(),
-        cancel: vi.fn(),
-        on: vi.fn(),
-    })),
-}));
+        };
+    }
+
+    return {
+        default: {
+            Ros: vi.fn(createRosMock),
+            Topic: vi.fn(createTopicMock),
+            Service: vi.fn(createServiceMock),
+            Action: vi.fn(createActionMock),
+            ActionClient: vi.fn(createActionClientMock),
+            Goal: vi.fn(createGoalMock),
+        },
+        Ros: vi.fn(createRosMock),
+        Topic: vi.fn(createTopicMock),
+        Service: vi.fn(createServiceMock),
+        Action: vi.fn(createActionMock),
+        ActionClient: vi.fn(createActionClientMock),
+        Goal: vi.fn(createGoalMock),
+    };
+});
 
 vi.mock('react-joystick-component', () => ({
     Joystick: vi.fn().mockImplementation(() => null),
