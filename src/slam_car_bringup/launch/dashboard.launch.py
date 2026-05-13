@@ -17,7 +17,9 @@ Both SLAM and Nav2 stacks are loaded but only one is active at a time.
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    ExecuteProcess,
     IncludeLaunchDescription,
+    TimerAction,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -37,8 +39,8 @@ def generate_launch_description():
     )
     use_explore_arg = DeclareLaunchArgument(
         "use_explore",
-        default_value="false",
-        description="Opt in to m-explore autonomous frontier exploration",
+        default_value="true",
+        description="Start m-explore backend for dashboard-controlled frontier exploration",
     )
     maps_directory_arg = DeclareLaunchArgument(
         "maps_directory",
@@ -135,12 +137,31 @@ def generate_launch_description():
                 "costmap_updates_topic": "/map_updates",
                 "visualize": True,
                 "planner_frequency": 0.33,
-                "progress_timeout": 60.0,
-                "potential_scale": 3.0,
+                "progress_timeout": 45.0,
+                "potential_scale": 5.0,
                 "orientation_scale": 0.0,
-                "gain_scale": 1.0,
-                "min_frontier_size": 0.5,
+                "gain_scale": 0.8,
+                "min_frontier_size": 0.35,
             }
+        ],
+        condition=IfCondition(LaunchConfiguration("use_explore")),
+    )
+
+    pause_explore_on_start = TimerAction(
+        period=2.0,
+        actions=[
+            ExecuteProcess(
+                cmd=[
+                    "ros2",
+                    "topic",
+                    "pub",
+                    "--once",
+                    "/explore/resume",
+                    "std_msgs/msg/Bool",
+                    "{data: false}",
+                ],
+                output="screen",
+            )
         ],
         condition=IfCondition(LaunchConfiguration("use_explore")),
     )
@@ -242,6 +263,7 @@ def generate_launch_description():
             # SLAM (always active for mapping)
             slam_toolbox,
             explore_node,
+            pause_explore_on_start,
             # Nav2 (lifecycle managed, starts unconfigured)
             map_server,
             amcl,

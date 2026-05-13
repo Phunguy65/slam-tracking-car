@@ -1,44 +1,23 @@
 /**
  * Primary viewport component for dashboard main content area.
  *
- * Renders occupancy map (SLAM) or camera stream (Tracking) based on mode.
- * Includes loading, error, and no-signal placeholder states.
+ * Renders the occupancy map for the SLAM dashboard viewport.
  */
 'use client';
 
-import { CameraStream } from '@/components/tracking/camera-stream.tsx';
-import { PersonOverlay } from '@/components/tracking/person-overlay.tsx';
-import type {
-    MinimapViewMode,
-    PrimaryMode,
-    SlamSubmode,
-} from '@/stores/dashboard-store.ts';
+import type { MinimapViewMode, SlamSubmode } from '@/stores/dashboard-store.ts';
 import { SlamViewport } from './slam-viewport.tsx';
 
 interface PrimaryViewportProps {
-    mode: PrimaryMode;
     slamSubmode: SlamSubmode;
     minimapViewMode: MinimapViewMode;
 }
 
 export function PrimaryViewport({
-    mode,
     slamSubmode,
     minimapViewMode,
 }: PrimaryViewportProps) {
-    if (mode === 'slam') {
-        return (
-            <SlamViewport
-                submode={slamSubmode}
-                minimapViewMode={minimapViewMode}
-            />
-        );
-    }
-
     return (
-        <div className='absolute inset-0 bg-black'>
-            <CameraStream />
-            <PersonOverlay />
-        </div>
+        <SlamViewport submode={slamSubmode} minimapViewMode={minimapViewMode} />
     );
 }

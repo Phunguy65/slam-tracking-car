@@ -3,7 +3,7 @@
  */
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { Service as ROSService } from 'roslib';
 import { createService, isConnected } from '@/lib/ros-client/index.ts';
 
@@ -67,12 +67,15 @@ export function useService<TReq, TRes>(
         [serviceName, serviceType],
     );
 
-    return {
-        call,
-        get isPending() {
-            return pendingRef.current;
-        },
-    };
+    return useMemo(
+        () => ({
+            call,
+            get isPending() {
+                return pendingRef.current;
+            },
+        }),
+        [call],
+    );
 }
 
 /**

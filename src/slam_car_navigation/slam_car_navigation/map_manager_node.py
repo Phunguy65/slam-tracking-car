@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 
 import rclpy
-from lifecycle_msgs.msg import Transition
+from lifecycle_msgs.msg import State, Transition
 from lifecycle_msgs.srv import ChangeState, GetState
 from nav2_msgs.srv import LoadMap as Nav2LoadMap
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -284,20 +284,47 @@ class MapManagerNode(Node):
         ]
 
         for node_name in nodes_to_activate:
-            # Configure then activate
-            for transition_id in [
-                Transition.TRANSITION_CONFIGURE,
-                Transition.TRANSITION_ACTIVATE,
-            ]:
-                success = self._change_node_state(node_name, transition_id)
+            state_id, state_label = self._get_node_state(node_name)
+            if state_id is None:
+                return False, state_label
+
+            if state_id == State.PRIMARY_STATE_ACTIVE:
+                continue
+
+            if state_id == State.PRIMARY_STATE_UNCONFIGURED:
+                success, message = self._change_node_state(
+                    node_name,
+                    Transition.TRANSITION_CONFIGURE,
+                )
                 if not success:
-                    return False, f"Failed to transition {node_name}"
+                    return False, message
+
+                state_id, state_label = self._get_node_state(node_name)
+                if state_id is None:
+                    return False, state_label
+
+            if state_id == State.PRIMARY_STATE_INACTIVE:
+                success, message = self._change_node_state(
+                    node_name,
+                    Transition.TRANSITION_ACTIVATE,
+                )
+                if not success:
+                    return False, message
+
+                state_id, state_label = self._get_node_state(node_name)
+                if state_id is None:
+                    return False, state_label
+
+            if state_id != State.PRIMARY_STATE_ACTIVE:
+                return False, (
+                    f"{node_name} expected active after activation, "
+                    f"current state is {self._format_lifecycle_state(state_id)}"
+                )
 
         return True, "Nav2 stack activated"
 
     def _deactivate_nav2_stack(self) -> tuple[bool, str]:
         """Deactivate Nav2 nodes via lifecycle transitions."""
-        # Reverse order for deactivation
         nodes_to_deactivate = [
             "bt_navigator",
             "planner_server",
@@ -307,30 +334,88 @@ class MapManagerNode(Node):
         ]
 
         for node_name in nodes_to_deactivate:
-            # Deactivate then cleanup
-            for transition_id in [
-                Transition.TRANSITION_DEACTIVATE,
-                Transition.TRANSITION_CLEANUP,
-            ]:
-                success = self._change_node_state(node_name, transition_id)
+            state_id, state_label = self._get_node_state(node_name)
+            if state_id is None:
+                return False, state_label
+
+            if state_id == State.PRIMARY_STATE_UNCONFIGURED:
+                continue
+
+            if state_id == State.PRIMARY_STATE_ACTIVE:
+                success, message = self._change_node_state(
+                    node_name,
+                    Transition.TRANSITION_DEACTIVATE,
+                )
                 if not success:
-                    # Log but continue - some nodes may already be inactive
-                    self.get_logger().warn(
-                        f"Transition failed for {node_name}, continuing..."
-                    )
+                    return False, message
+
+                state_id, state_label = self._get_node_state(node_name)
+                if state_id is None:
+                    return False, state_label
+
+            if state_id == State.PRIMARY_STATE_INACTIVE:
+                success, message = self._change_node_state(
+                    node_name,
+                    Transition.TRANSITION_CLEANUP,
+                )
+                if not success:
+                    return False, message
+
+                state_id, state_label = self._get_node_state(node_name)
+                if state_id is None:
+                    return False, state_label
+
+            if state_id != State.PRIMARY_STATE_UNCONFIGURED:
+                return False, (
+                    f"{node_name} expected unconfigured after deactivation, "
+                    f"current state is {self._format_lifecycle_state(state_id)}"
+                )
 
         return True, "Nav2 stack deactivated"
 
-    def _change_node_state(self, node_name: str, transition_id: int) -> bool:
+    def _get_node_state(self, node_name: str) -> tuple[int | None, str]:
+        """Get lifecycle state of a single node."""
+        if node_name not in self.lifecycle_clients:
+            return None, f"No lifecycle client configured for {node_name}"
+
+        client = self.lifecycle_clients[node_name]["get_state"]
+
+        if not client.wait_for_service(timeout_sec=2.0):
+            return None, f"Lifecycle get_state service not available for {node_name}"
+
+        request = GetState.Request()
+
+        try:
+            future = client.call_async(request)
+            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+            result = future.result()
+
+            if result is None:
+                return None, f"Timeout waiting for lifecycle state from {node_name}"
+
+            state_id = result.current_state.id
+            if state_id not in self._known_lifecycle_states():
+                return None, f"Unknown lifecycle state for {node_name}: {state_id}"
+
+            return state_id, result.current_state.label
+
+        except Exception as e:
+            return None, f"Error getting lifecycle state for {node_name}: {e}"
+
+    def _change_node_state(
+        self, node_name: str, transition_id: int
+    ) -> tuple[bool, str]:
         """Change lifecycle state of a single node."""
         if node_name not in self.lifecycle_clients:
-            return False
+            return False, f"No lifecycle client configured for {node_name}"
 
         client = self.lifecycle_clients[node_name]["change_state"]
 
         if not client.wait_for_service(timeout_sec=2.0):
-            self.get_logger().warn(f"Lifecycle service not available for {node_name}")
-            return False
+            return (
+                False,
+                f"Lifecycle change_state service not available for {node_name}",
+            )
 
         request = ChangeState.Request()
         request.transition.id = transition_id
@@ -338,15 +423,57 @@ class MapManagerNode(Node):
         try:
             future = client.call_async(request)
             rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+            result = future.result()
 
-            if future.result() is not None:
-                return future.result().success
-            else:
-                return False
+            if result is None:
+                return False, (
+                    f"Timeout waiting for {node_name} lifecycle transition "
+                    f"{self._format_transition(transition_id)}"
+                )
+
+            if not result.success:
+                return False, (
+                    f"{node_name} rejected lifecycle transition "
+                    f"{self._format_transition(transition_id)}"
+                )
+
+            return True, (
+                f"{node_name} completed lifecycle transition "
+                f"{self._format_transition(transition_id)}"
+            )
 
         except Exception as e:
-            self.get_logger().error(f"Error changing state for {node_name}: {e}")
-            return False
+            return False, (
+                f"Error changing lifecycle state for {node_name} via "
+                f"{self._format_transition(transition_id)}: {e}"
+            )
+
+    def _known_lifecycle_states(self) -> set[int]:
+        """Return lifecycle states this node can safely manage."""
+        return {
+            State.PRIMARY_STATE_UNCONFIGURED,
+            State.PRIMARY_STATE_INACTIVE,
+            State.PRIMARY_STATE_ACTIVE,
+        }
+
+    def _format_lifecycle_state(self, state_id: int) -> str:
+        """Format lifecycle state for service responses."""
+        state_names = {
+            State.PRIMARY_STATE_UNCONFIGURED: "unconfigured",
+            State.PRIMARY_STATE_INACTIVE: "inactive",
+            State.PRIMARY_STATE_ACTIVE: "active",
+        }
+        return f"{state_names.get(state_id, 'unknown')}({state_id})"
+
+    def _format_transition(self, transition_id: int) -> str:
+        """Format lifecycle transition for service responses."""
+        transition_names = {
+            Transition.TRANSITION_CONFIGURE: "configure",
+            Transition.TRANSITION_ACTIVATE: "activate",
+            Transition.TRANSITION_DEACTIVATE: "deactivate",
+            Transition.TRANSITION_CLEANUP: "cleanup",
+        }
+        return f"{transition_names.get(transition_id, 'unknown')}({transition_id})"
 
 
 def main(args=None):

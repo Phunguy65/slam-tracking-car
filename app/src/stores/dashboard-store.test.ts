@@ -10,14 +10,10 @@ describe('useDashboardStore', () => {
             primaryMode: 'slam',
             slamSubmode: 'mapping',
             autoExplore: false,
-            trackingEnabled: false,
-            targetPerson: null,
             primaryViewport: 'map',
             pipEnabled: true,
             pipPosition: 'top-right',
             minimapEnabled: true,
-            enrollModalOpen: false,
-            manualOverride: false,
             rosError: null,
         });
     });
@@ -27,44 +23,24 @@ describe('useDashboardStore', () => {
             primaryMode: 'slam',
             slamSubmode: 'mapping',
             autoExplore: false,
-            trackingEnabled: false,
-            targetPerson: null,
             primaryViewport: 'map',
             pipEnabled: true,
             pipPosition: 'top-right',
             minimapEnabled: true,
-            enrollModalOpen: false,
-            manualOverride: false,
             rosError: null,
         });
     });
 
     describe('mode switching', () => {
-        it('should switch primary mode from slam to tracking', () => {
+        it('should keep primary mode on slam', () => {
             const store = useDashboardStore.getState();
             expect(store.primaryMode).toBe('slam');
 
-            store.setPrimaryMode('tracking');
+            store.setPrimaryMode('slam');
 
             const updatedStore = useDashboardStore.getState();
-            expect(updatedStore.primaryMode).toBe('tracking');
-            expect(updatedStore.primaryViewport).toBe('camera');
-        });
-
-        it('should switch primary mode from tracking to slam', () => {
-            useDashboardStore.getState().setPrimaryMode('tracking');
-            useDashboardStore.getState().setPrimaryMode('slam');
-
-            const store = useDashboardStore.getState();
-            expect(store.primaryMode).toBe('slam');
-            expect(store.primaryViewport).toBe('map');
-        });
-
-        it('should reset manual override when switching modes', () => {
-            useDashboardStore.getState().setManualOverride(true);
-            useDashboardStore.getState().setPrimaryMode('slam');
-
-            expect(useDashboardStore.getState().manualOverride).toBe(false);
+            expect(updatedStore.primaryMode).toBe('slam');
+            expect(updatedStore.primaryViewport).toBe('map');
         });
 
         it('should switch slam submode', () => {
@@ -112,29 +88,6 @@ describe('useDashboardStore', () => {
 
             useDashboardStore.getState().setMinimapEnabled(false);
             expect(useDashboardStore.getState().minimapEnabled).toBe(false);
-        });
-    });
-
-    describe('control gating', () => {
-        it('should disable tracking when enabling manual override', () => {
-            useDashboardStore.getState().setTrackingEnabled(true);
-            expect(useDashboardStore.getState().trackingEnabled).toBe(true);
-
-            useDashboardStore.getState().setManualOverride(true);
-            expect(useDashboardStore.getState().manualOverride).toBe(true);
-            expect(useDashboardStore.getState().trackingEnabled).toBe(false);
-        });
-    });
-
-    describe('enrollment modal', () => {
-        it('should open and close enrollment modal', () => {
-            expect(useDashboardStore.getState().enrollModalOpen).toBe(false);
-
-            useDashboardStore.getState().setEnrollModalOpen(true);
-            expect(useDashboardStore.getState().enrollModalOpen).toBe(true);
-
-            useDashboardStore.getState().setEnrollModalOpen(false);
-            expect(useDashboardStore.getState().enrollModalOpen).toBe(false);
         });
     });
 

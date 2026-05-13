@@ -62,10 +62,9 @@ describe('Dashboard Keyboard Handler', () => {
 
     describe('joystick control gating', () => {
         type TestState = {
-            primaryMode: 'slam' | 'tracking';
+            primaryMode: 'slam';
             slamSubmode: 'mapping' | 'navigation';
             autoExplore: boolean;
-            manualOverride: boolean;
             isConnected: boolean;
         };
 
@@ -78,10 +77,6 @@ describe('Dashboard Keyboard Handler', () => {
                 return true;
             }
 
-            if (state.primaryMode === 'tracking') {
-                return state.manualOverride;
-            }
-
             return false;
         }
 
@@ -90,7 +85,6 @@ describe('Dashboard Keyboard Handler', () => {
                 primaryMode: 'slam',
                 slamSubmode: 'mapping',
                 autoExplore: false,
-                manualOverride: false,
                 isConnected: true,
             };
             expect(canUseJoystick(state)).toBe(true);
@@ -101,7 +95,6 @@ describe('Dashboard Keyboard Handler', () => {
                 primaryMode: 'slam',
                 slamSubmode: 'mapping',
                 autoExplore: true,
-                manualOverride: false,
                 isConnected: true,
             };
             expect(canUseJoystick(state)).toBe(false);
@@ -112,29 +105,6 @@ describe('Dashboard Keyboard Handler', () => {
                 primaryMode: 'slam',
                 slamSubmode: 'navigation',
                 autoExplore: false,
-                manualOverride: false,
-                isConnected: true,
-            };
-            expect(canUseJoystick(state)).toBe(false);
-        });
-
-        it('should allow joystick in tracking with manual override', () => {
-            const state: TestState = {
-                primaryMode: 'tracking',
-                slamSubmode: 'mapping',
-                autoExplore: false,
-                manualOverride: true,
-                isConnected: true,
-            };
-            expect(canUseJoystick(state)).toBe(true);
-        });
-
-        it('should disable joystick in tracking without manual override', () => {
-            const state: TestState = {
-                primaryMode: 'tracking',
-                slamSubmode: 'mapping',
-                autoExplore: false,
-                manualOverride: false,
                 isConnected: true,
             };
             expect(canUseJoystick(state)).toBe(false);
@@ -145,7 +115,6 @@ describe('Dashboard Keyboard Handler', () => {
                 primaryMode: 'slam',
                 slamSubmode: 'mapping',
                 autoExplore: false,
-                manualOverride: false,
                 isConnected: false,
             };
             expect(canUseJoystick(state)).toBe(false);

@@ -46,3 +46,7 @@ logs/
 # ── Lefthook ────────────────────────────────────────────────────────────────
 .lefthook-local.yml
 .gitnexus
+
+# others
+docs/report/
+docs/spec/

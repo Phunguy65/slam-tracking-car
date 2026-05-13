@@ -1,8 +1,8 @@
 /**
  * Unified Dashboard orchestrator component.
  *
- * Consolidates SLAM and tracking workflows into a single operator workspace
- * with persistent header, adaptive viewport, control panels, and status bar.
+ * Provides the SLAM operator workspace with persistent header, adaptive
+ * viewport, control panels, and status bar.
  */
 'use client';
 
@@ -20,7 +20,6 @@ import { ModeController } from './mode-controller.tsx';
 import { ReconnectOverlay } from './reconnect-overlay.tsx';
 import { SlamPanels } from './slam-panels.tsx';
 import { StatusBar } from './status-bar.tsx';
-import { TrackingPanels } from './tracking-panels.tsx';
 
 export function UnifiedDashboard() {
     const status = useRosStore((s) => s.status);
@@ -31,24 +30,19 @@ export function UnifiedDashboard() {
     const minimapEnabled = useDashboardStore((s) => s.minimapEnabled);
     const minimapViewMode = useDashboardStore((s) => s.minimapViewMode);
     const autoExplore = useDashboardStore((s) => s.autoExplore);
-    const manualOverride = useDashboardStore((s) => s.manualOverride);
-    const trackingEnabled = useDashboardStore((s) => s.trackingEnabled);
 
     const [logOpen, setLogOpen] = useState(false);
 
     const isSlam = primaryMode === 'slam';
-    const isTracking = primaryMode === 'tracking';
 
     const showMappingJoystick =
         isSlam && slamSubmode === 'mapping' && !autoExplore;
-    const showTrackingJoystick = isTracking && manualOverride;
 
     return (
         <DashboardKeyboardHandler>
             <div className='flex-1 relative flex flex-col overflow-hidden bg-slate-950'>
                 <div className='flex-1 relative'>
                     <PrimaryViewport
-                        mode={primaryMode}
                         slamSubmode={slamSubmode}
                         minimapViewMode={minimapViewMode}
                     />
@@ -64,22 +58,18 @@ export function UnifiedDashboard() {
                             <div className='flex flex-col gap-3 pointer-events-auto max-w-xs'>
                                 {minimapEnabled && <SwappableMinimap />}
                                 {isSlam && <SlamPanels />}
-                                {isTracking && <TrackingPanels />}
                             </div>
 
                             <div className='pointer-events-auto'>
-                                {(showMappingJoystick
-                                    || showTrackingJoystick) && (
+                                {showMappingJoystick && (
                                     <ManualJoystick showLabel={true} />
                                 )}
                             </div>
                         </div>
 
-                        {!trackingEnabled && (
-                            <div className='absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto'>
-                                <ServoPanControl />
-                            </div>
-                        )}
+                        <div className='absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-auto'>
+                            <ServoPanControl />
+                        </div>
                     </div>
                 </div>
 

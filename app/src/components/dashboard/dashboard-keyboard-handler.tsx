@@ -1,7 +1,7 @@
 /**
  * Dashboard keyboard handler for shortcuts and accessibility.
  *
- * Manages emergency stop (Space), mode shortcuts (1/2), and arrow key
+ * Manages emergency stop (Space), mode shortcut (1), and arrow key
  * navigation while respecting editable field focus.
  */
 'use client';
@@ -28,7 +28,6 @@ export function DashboardKeyboardHandler({
     const primaryMode = useDashboardStore((s) => s.primaryMode);
     const slamSubmode = useDashboardStore((s) => s.slamSubmode);
     const autoExplore = useDashboardStore((s) => s.autoExplore);
-    const manualOverride = useDashboardStore((s) => s.manualOverride);
     const setPrimaryMode = useDashboardStore((s) => s.setPrimaryMode);
 
     const publishCmdVel = usePublisher<Twist>(
@@ -62,12 +61,8 @@ export function DashboardKeyboardHandler({
             return true;
         }
 
-        if (primaryMode === 'tracking') {
-            return manualOverride;
-        }
-
         return false;
-    }, [isConnected, primaryMode, slamSubmode, autoExplore, manualOverride]);
+    }, [isConnected, primaryMode, slamSubmode, autoExplore]);
 
     const handleEmergencyStop = useCallback(() => {
         if (!isConnected) return;
@@ -133,12 +128,6 @@ export function DashboardKeyboardHandler({
             if (e.key === '1' && !isEditableTarget(e.target)) {
                 e.preventDefault();
                 setPrimaryMode('slam');
-                return;
-            }
-
-            if (e.key === '2' && !isEditableTarget(e.target)) {
-                e.preventDefault();
-                setPrimaryMode('tracking');
                 return;
             }
 

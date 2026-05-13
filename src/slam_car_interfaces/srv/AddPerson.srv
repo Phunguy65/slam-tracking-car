@@ -1,6 +1,0 @@
-# Add a person from the current enrollment state
-string name                   # Display name for the person
----
-bool success                  # True if person was added successfully
-string person_id              # UUID of the newly added person (empty on failure)
-string error_message          # Error description if success=false

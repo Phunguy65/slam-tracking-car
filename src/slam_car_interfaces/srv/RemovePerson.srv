@@ -1,5 +1,0 @@
-# Remove an enrolled person by ID
-string person_id              # UUID of person to remove
----
-bool success                  # True if person was removed
-string error_message          # Error description if success=false
