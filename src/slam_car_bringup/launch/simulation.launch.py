@@ -7,6 +7,7 @@ Launches:
   - ros_gz_bridge (Gazebo ↔ ROS2 topics)
   - RViz2 (optional)
 """
+
 import os
 
 import xacro
@@ -46,15 +47,16 @@ def generate_launch_description():
         package="robot_state_publisher",
         executable="robot_state_publisher",
         output="screen",
-        parameters=[
-            {"robot_description": robot_description, "use_sim_time": True}
-        ],
+        parameters=[{"robot_description": robot_description, "use_sim_time": True}],
     )
 
     # ── Gazebo Fortress ──────────────────────────────────────
     gazebo = ExecuteProcess(
         cmd=[
-            "gz", "sim", "-v4", "-r",
+            "gz",
+            "sim",
+            "-v4",
+            "-r",
             LaunchConfiguration("world"),
         ],
         output="screen",
@@ -65,11 +67,16 @@ def generate_launch_description():
         package="ros_gz_sim",
         executable="create",
         arguments=[
-            "-name", "slam_tracking_car",
-            "-topic", "robot_description",
-            "-x", "0.0",
-            "-y", "0.0",
-            "-z", "0.1",
+            "-name",
+            "slam_tracking_car",
+            "-topic",
+            "robot_description",
+            "-x",
+            "0.0",
+            "-y",
+            "0.0",
+            "-z",
+            "0.1",
         ],
         output="screen",
     )
