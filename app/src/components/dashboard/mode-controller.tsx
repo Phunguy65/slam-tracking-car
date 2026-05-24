@@ -5,7 +5,7 @@
  */
 'use client';
 
-import { Compass, Map as MapIcon, Navigation } from 'lucide-react';
+import { Compass, Map as MapIcon, Navigation, Target } from 'lucide-react';
 import { useCallback } from 'react';
 import { Switch } from '@/components/ui/switch.tsx';
 import { useTopic } from '@/hooks/use-topic.ts';
@@ -102,6 +102,14 @@ export function ModeController({ disabled = false }: ModeControllerProps) {
                     icon={<MapIcon className='size-4' />}
                     label='SLAM'
                     shortcut='1'
+                />
+                <ModeButton
+                    active={primaryMode === 'tracking'}
+                    disabled={disabled}
+                    onClick={() => handlePrimaryModeChange('tracking')}
+                    icon={<Target className='size-4' />}
+                    label='Tracking'
+                    shortcut='2'
                 />
             </div>
 

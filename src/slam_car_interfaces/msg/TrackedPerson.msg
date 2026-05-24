@@ -1,0 +1,8 @@
+string person_id
+float32 confidence
+bool is_target
+slam_car_interfaces/BoundingBox2D body_bbox
+slam_car_interfaces/BoundingBox2D face_bbox
+bool face_visible
+float32 range_m
+float32 bearing_rad

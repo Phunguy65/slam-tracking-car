@@ -121,7 +121,7 @@ describe('ROS2 action stores', () => {
         const { useNavStore } = await import('@/stores/nav-store.ts');
 
         const pose = {
-            header: { frame_id: 'map' },
+            header: { stamp: { sec: 0, nanosec: 0 }, frame_id: 'map' },
             pose: {
                 position: { x: 1, y: 2, z: 0 },
                 orientation: { x: 0, y: 0, z: 0, w: 1 },

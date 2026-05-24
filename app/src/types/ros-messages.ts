@@ -1,6 +1,25 @@
 /**
  * TypeScript types for ROS messages used in the dashboard.
  */
+export type {
+    AddPersonRequest,
+    AddPersonResponse,
+    BoundingBox2D,
+    EnrolledPerson,
+    EnrollmentStatus,
+    GetTrackingTargetRequest,
+    GetTrackingTargetResponse,
+    ListPersonsRequest,
+    ListPersonsResponse,
+    RemovePersonRequest,
+    RemovePersonResponse,
+    SetTrackingTargetRequest,
+    SetTrackingTargetResponse,
+    TrackedPerson,
+    TrackedPersonArray,
+    TrackingControllerStatus,
+} from '@/types/enrollment.ts';
+export { parseTrackingControllerStatus } from '@/types/enrollment.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // geometry_msgs

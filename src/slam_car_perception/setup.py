@@ -14,12 +14,16 @@ setup(
     zip_safe=True,
     maintainer="SLAM Car Dev",
     maintainer_email="dev@slamcar.local",
-    description="Vision bridge nodes for SLAM Tracking Car",
+    description="Vision bridge and person tracking nodes for SLAM Tracking Car",
     license="MIT",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
             "cam_bridge_node = slam_car_perception.cam_bridge_node:main",
+            "enrollment_node = slam_car_perception.enrollment_node:main",
+            "person_tracker_node = slam_car_perception.person_tracker_node:main",
+            "tracking_controller_node = "
+            "slam_car_perception.tracking_controller_node:main",
         ],
     },
 )

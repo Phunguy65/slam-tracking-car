@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { ManualJoystick } from '@/components/slam/manual-joystick.tsx';
 import { ServoPanControl } from '@/components/slam/servo-pan-control.tsx';
+import { MinimapOverlay } from '@/components/viewport/minimap-overlay.tsx';
 import { PictureInPicture } from '@/components/viewport/picture-in-picture.tsx';
 import { PrimaryViewport } from '@/components/viewport/primary-viewport.tsx';
 import { SwappableMinimap } from '@/components/viewport/swappable-minimap.tsx';
@@ -20,6 +21,7 @@ import { ModeController } from './mode-controller.tsx';
 import { ReconnectOverlay } from './reconnect-overlay.tsx';
 import { SlamPanels } from './slam-panels.tsx';
 import { StatusBar } from './status-bar.tsx';
+import { TrackingPanels } from './tracking-panels.tsx';
 
 export function UnifiedDashboard() {
     const status = useRosStore((s) => s.status);
@@ -30,24 +32,29 @@ export function UnifiedDashboard() {
     const minimapEnabled = useDashboardStore((s) => s.minimapEnabled);
     const minimapViewMode = useDashboardStore((s) => s.minimapViewMode);
     const autoExplore = useDashboardStore((s) => s.autoExplore);
+    const manualOverride = useDashboardStore((s) => s.manualOverride);
 
     const [logOpen, setLogOpen] = useState(false);
 
     const isSlam = primaryMode === 'slam';
+    const isTracking = primaryMode === 'tracking';
 
     const showMappingJoystick =
         isSlam && slamSubmode === 'mapping' && !autoExplore;
+    const showTrackingJoystick = isTracking && manualOverride;
 
     return (
         <DashboardKeyboardHandler>
             <div className='flex-1 relative flex flex-col overflow-hidden bg-slate-950'>
                 <div className='flex-1 relative'>
                     <PrimaryViewport
+                        mode={primaryMode}
                         slamSubmode={slamSubmode}
                         minimapViewMode={minimapViewMode}
                     />
 
                     {isSlam && pipEnabled && <PictureInPicture />}
+                    {isTracking && minimapEnabled && <MinimapOverlay />}
 
                     <div className='absolute inset-0 pointer-events-none p-4'>
                         <div className='flex items-start justify-between pointer-events-auto'>
@@ -56,12 +63,16 @@ export function UnifiedDashboard() {
 
                         <div className='absolute bottom-4 left-4 right-4 flex items-end justify-between'>
                             <div className='flex flex-col gap-3 pointer-events-auto max-w-xs'>
-                                {minimapEnabled && <SwappableMinimap />}
+                                {isSlam && minimapEnabled && (
+                                    <SwappableMinimap />
+                                )}
                                 {isSlam && <SlamPanels />}
+                                {isTracking && <TrackingPanels />}
                             </div>
 
                             <div className='pointer-events-auto'>
-                                {showMappingJoystick && (
+                                {(showMappingJoystick
+                                    || showTrackingJoystick) && (
                                     <ManualJoystick showLabel={true} />
                                 )}
                             </div>

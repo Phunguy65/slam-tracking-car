@@ -28,6 +28,7 @@ export function DashboardKeyboardHandler({
     const primaryMode = useDashboardStore((s) => s.primaryMode);
     const slamSubmode = useDashboardStore((s) => s.slamSubmode);
     const autoExplore = useDashboardStore((s) => s.autoExplore);
+    const manualOverride = useDashboardStore((s) => s.manualOverride);
     const setPrimaryMode = useDashboardStore((s) => s.setPrimaryMode);
 
     const publishCmdVel = usePublisher<Twist>(
@@ -61,8 +62,12 @@ export function DashboardKeyboardHandler({
             return true;
         }
 
+        if (primaryMode === 'tracking') {
+            return manualOverride;
+        }
+
         return false;
-    }, [isConnected, primaryMode, slamSubmode, autoExplore]);
+    }, [isConnected, primaryMode, slamSubmode, autoExplore, manualOverride]);
 
     const handleEmergencyStop = useCallback(() => {
         if (!isConnected) return;
@@ -128,6 +133,12 @@ export function DashboardKeyboardHandler({
             if (e.key === '1' && !isEditableTarget(e.target)) {
                 e.preventDefault();
                 setPrimaryMode('slam');
+                return;
+            }
+
+            if (e.key === '2' && !isEditableTarget(e.target)) {
+                e.preventDefault();
+                setPrimaryMode('tracking');
                 return;
             }
 

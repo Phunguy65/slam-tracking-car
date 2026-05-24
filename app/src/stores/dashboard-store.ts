@@ -7,7 +7,7 @@
  */
 import { create } from 'zustand';
 
-export type PrimaryMode = 'slam';
+export type PrimaryMode = 'slam' | 'tracking';
 export type SlamSubmode = 'mapping' | 'navigation';
 export type PipPosition =
     | 'top-right'
@@ -27,6 +27,10 @@ interface DashboardState {
     minimapViewMode: MinimapViewMode;
     rosError: string | null;
     cameraStreamEnabled: boolean;
+    trackingEnabled: boolean;
+    targetPerson: string | null;
+    enrollModalOpen: boolean;
+    manualOverride: boolean;
 }
 
 interface DashboardActions {
@@ -41,6 +45,10 @@ interface DashboardActions {
     setRosError: (error: string | null) => void;
     clearRosError: () => void;
     setCameraStreamEnabled: (enabled: boolean) => void;
+    setTrackingEnabled: (enabled: boolean) => void;
+    setTargetPerson: (personId: string | null) => void;
+    setEnrollModalOpen: (open: boolean) => void;
+    setManualOverride: (enabled: boolean) => void;
 }
 
 export const useDashboardStore = create<DashboardState & DashboardActions>(
@@ -55,11 +63,16 @@ export const useDashboardStore = create<DashboardState & DashboardActions>(
         minimapViewMode: 'lidar',
         rosError: null,
         cameraStreamEnabled: true,
+        trackingEnabled: false,
+        targetPerson: null,
+        enrollModalOpen: false,
+        manualOverride: false,
 
         setPrimaryMode: (mode) =>
             set(() => ({
                 primaryMode: mode,
-                primaryViewport: 'map',
+                primaryViewport: mode === 'tracking' ? 'camera' : 'map',
+                manualOverride: false,
             })),
 
         setSlamSubmode: (submode) =>
@@ -90,5 +103,21 @@ export const useDashboardStore = create<DashboardState & DashboardActions>(
 
         setCameraStreamEnabled: (enabled) =>
             set({ cameraStreamEnabled: enabled }),
+
+        setTrackingEnabled: (enabled) =>
+            set((state) => ({
+                trackingEnabled: enabled,
+                manualOverride: enabled ? false : state.manualOverride,
+            })),
+
+        setTargetPerson: (personId) => set({ targetPerson: personId }),
+
+        setEnrollModalOpen: (open) => set({ enrollModalOpen: open }),
+
+        setManualOverride: (enabled) =>
+            set((state) => ({
+                manualOverride: enabled,
+                trackingEnabled: enabled ? false : state.trackingEnabled,
+            })),
     }),
 );

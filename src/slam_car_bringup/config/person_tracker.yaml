@@ -1,56 +1,49 @@
-# Person tracking configuration
-# Used by enrollment_node, person_tracker_node, and tracking_controller_node
-
-# ─── Enrollment Node ─────────────────────────────────────────────────────────
 enrollment_node:
   ros__parameters:
     db_path: "~/.slam_car/face_db.sqlite"
     embedding_threshold: 0.6
-    scan_frames: 10  # Number of frames to average for embedding
+    scan_frames: 10
 
-# ─── Person Tracker Node ─────────────────────────────────────────────────────
+cam_bridge_node:
+  ros__parameters:
+    camera_fov_horizontal_deg: 62.0
+
 person_tracker_node:
   ros__parameters:
     db_path: "~/.slam_car/face_db.sqlite"
     embedding_threshold: 0.6
     image_topic: "/camera/image_raw"
     body_confidence_threshold: 0.5
-    confidence_decay_rate: 0.1  # Per second without face confirmation
+    confidence_decay_rate: 0.1
+    camera_fov_horizontal_deg: 62.0
+    leg_cluster_min_width_m: 0.05
+    leg_cluster_max_width_m: 0.30
+    leg_pair_min_gap_m: 0.15
+    leg_pair_max_gap_m: 0.35
+    bearing_match_tolerance_rad: 0.10
 
-# ─── Tracking Controller Node ────────────────────────────────────────────────
 tracking_controller_node:
   ros__parameters:
-    # Servo PID (fast, fine adjustment at 50Hz)
     pid_servo_kp: 2.0
     pid_servo_ki: 0.0
     pid_servo_kd: 0.1
-
-    # Wheel yaw PID (slow, coarse adjustment at 10Hz)
     pid_wheel_yaw_kp: 0.5
     pid_wheel_yaw_ki: 0.0
     pid_wheel_yaw_kd: 0.05
-
-    # Linear PID (forward/backward control)
     pid_linear_kp: 0.3
     pid_linear_ki: 0.0
     pid_linear_kd: 0.05
-
-    # Control limits
-    max_servo_angle: 1.57         # ±90° in radians
-    servo_handoff_threshold: 0.52 # ±30° in radians (wheel takes over)
-    max_linear_speed: 0.3         # m/s
-    max_angular_speed: 1.0        # rad/s
-
-    # Target distance control (based on body bbox width)
-    target_body_width_min: 0.20   # Move forward if smaller
-    target_body_width_max: 0.30   # Move backward if larger
-    body_width_too_far: 0.15      # Definitely too far
-    body_width_too_close: 0.35    # Definitely too close
-
-    # Search behavior timing (seconds)
-    search_continue_duration: 0.5 # Continue last direction
-    search_scan_duration: 2.0     # Servo scan left-right
-    search_rotate_duration: 5.0   # Robot rotates 360°
-
-    # Target lost timeout
+    max_servo_angle: 1.57
+    servo_handoff_threshold: 0.52
+    max_linear_speed: 0.3
+    max_angular_speed: 1.0
+    target_distance_min: 1.0
+    target_distance_max: 1.5
+    distance_too_far: 2.5
+    distance_too_close: 0.6
+    front_safety_distance: 0.3
+    front_safety_half_arc_rad: 0.35
+    search_continue_duration: 0.5
+    search_scan_duration: 2.0
+    search_rotate_duration: 5.0
     lost_timeout: 0.5

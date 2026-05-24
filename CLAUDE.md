@@ -5,97 +5,6 @@ ROS2 Humble robot with two operating modes:
 - **Face Tracking**: ESP32-CAM detects faces, robot follows
 - **SLAM + Navigation**: LiDAR (LDS02RR) mapping + autonomous navigation between waypoints
 
-## Prerequisites (Host)
-
-- **Linux** (Ubuntu, Fedora, Arch, NixOS, etc.)
-- [Podman](https://podman.io/docs/installation) (v2.1.0+)
-- [Distrobox](https://distrobox.it/#installation) (v1.4+)
-- User in `dialout` group (for ESP32 USB flashing):
-  ```bash
-  sudo usermod -aG dialout $USER
-  # Log out and back in
-  ```
-
-> **macOS/Windows**: Not supported via Distrobox. Use DevContainer (VS Code/Zed) or the Dockerfile directly.
-
-## Quick Start
-
-### Option 1: DevContainer (VS Code / Zed) — Recommended
-
-```bash
-# 1. Clone
-git clone <repo-url> slam_tracking_car
-cd slam_tracking_car
-
-# 2. Open in VS Code or Zed
-#    VS Code: F1 → "Dev Containers: Reopen in Container"
-#    Zed:     "Open in Dev Container" prompt on folder open
-
-# 3. Wait for container build + setup (first time ~10 min)
-#    Subsequent opens are instant.
-
-# 4. Start developing
-colcon build
-source install/setup.bash
-ros2 launch slam_car_bringup simulation.launch.py    # Gazebo sim
-```
-
-**Zed users with Podman**: Add to Zed settings:
-
-```json
-{
-  "dev_containers": { "use_podman": true }
-}
-```
-
-Note: Zed does not auto-install extensions from devcontainer.json yet. Install extensions manually.
-
-**GUI apps (RViz2, Gazebo)**: Run on host before opening container:
-
-```bash
-xhost +local:   # Allow container to access X11 (works with Podman)
-```
-
-### Option 2: Distrobox (Linux terminal workflow)
-
-```bash
-# 1. Clone
-git clone <repo-url> slam_tracking_car
-cd slam_tracking_car
-
-# 2. First-time setup (builds image + creates distrobox + installs deps)
-bash .devcontainer/setup.sh
-distrobox assemble create --file distrobox.ini
-distrobox enter slam-dev
-bash .devcontainer/setup.sh
-
-# 3. Daily workflow
-distrobox enter slam-dev
-colcon build
-source install/setup.bash
-ros2 launch slam_car_bringup simulation.launch.py    # Gazebo sim
-ros2 launch slam_car_bringup robot.launch.py          # Real robot
-```
-
-## VS Code
-
-Two ways to connect:
-
-**Option A** — Attach from host:
-
-1. Start container: `distrobox enter slam-dev` (keep terminal open)
-2. In VS Code: `F1` -> `Dev Containers: Attach to Running Container` -> select `slam-dev`
-
-**Option B** — Launch from inside container:
-
-```bash
-distrobox enter slam-dev
-cd /path/to/slam_tracking_car
-code .
-```
-
-Recommended extensions are listed in `.vscode/extensions.json` and will be suggested on first open.
-
 ## Project Structure
 
 ```
@@ -108,7 +17,6 @@ slam_tracking_car/              # Git root = colcon workspace root
 │   ├── src/main.cpp            #   Main board (LiDAR + motors + micro-ROS)
 │   ├── src/cam_main.cpp        #   ESP32-CAM (MJPEG stream + micro-ROS)
 │   └── platformio.ini
-├── legacy/                     # Old Python+MQTT code (reference only)
 ├── .devcontainer/
 │   ├── Dockerfile              #   ROS2 Humble image definition
 │   ├── devcontainer.json       #   VS Code + Zed container config
@@ -147,6 +55,16 @@ pio run -e esp32_main -t upload
 
 # Flash camera board
 pio run -e esp32_cam -t upload
+```
+
+## Build and verify
+
+Always begin:
+
+```sh
+distrobox enter slam-dev
+source /opt/ros/humble/setup.zsh && source /uros_ws/install/setup.sh && source /explore_ws/install/setup.zsh && source install/setup.zsh
+colcon build
 ```
 
 ### Multi-Environment Support

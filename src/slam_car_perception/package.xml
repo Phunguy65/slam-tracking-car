@@ -3,7 +3,7 @@
 <package format="3">
   <name>slam_car_perception</name>
   <version>0.1.0</version>
-  <description>Vision and face tracking nodes for SLAM Tracking Car</description>
+  <description>Vision and person tracking nodes for SLAM Tracking Car</description>
   <maintainer email="dev@slamcar.local">SLAM Car Dev</maintainer>
   <license>MIT</license>
 
@@ -12,13 +12,15 @@
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>cv_bridge</depend>
   <depend>image_transport</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>slam_car_interfaces</depend>
 
-  <!-- Python runtime dependencies (installed via apt in devcontainer) -->
   <exec_depend>python3-opencv</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
-  <!-- mediapipe installed via pip in devcontainer (no apt package available) -->
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
