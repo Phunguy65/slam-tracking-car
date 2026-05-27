@@ -124,75 +124,95 @@ Hệ thống được thiết kế theo kiến trúc phân tán module để d�
 - **Khối Cảm biến:** MPU6050 giao tiếp với ESP32 qua chuẩn **I2C** (chân SDA, SCL). LiDAR LDS02RR giao tiếp qua chuẩn **UART** (TX/RX) để liên tục gửi mảng dữ liệu quét 360 độ. ESP32-CAM hoạt động độc lập để xử lý hình ảnh sinh trắc học và gửi tín hiệu xác thực mở khóa khoang hàng về ESP32 trung tâm.
 - **Khối Chấp hành:** ESP32 xuất các xung **PWM** sang TB6612 để điều tốc 2 động cơ DC. Các kênh Encoder A/B từ động cơ phản hồi tín hiệu về các chân ngắt (Interrupt) của ESP32 để thực hiện vòng lặp hồi tiếp PID, giúp xe đi thẳng và rẽ chính xác.
 
-```mermaid
-flowchart LR
-    %% Định nghĩa các style
-    classDef power fill:#f9d0c4,stroke:#e83e8c,stroke-width:2px;
-    classDef input fill:#d4edda,stroke:#28a745,stroke-width:2px;
-    classDef process fill:#cce5ff,stroke:#007bff,stroke-width:2px;
-    classDef output fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
-    classDef mass fill:#e2e3e5,stroke:#343a40,stroke-width:2px,stroke-dasharray: 5 5;
+```plantuml
+@startuml
+title So do khoi he thong - SLAM Tracking Car
+left to right direction
 
-    %% KHỐI NGUỒN VÀ MASS CHUNG
-    subgraph PowerSystem[KHỐI NGUỒN - 3 PIN CÁCH LY]
-        BAT1[Cặp Pin 1]:::power
-        BAT2[Cặp Pin 2]:::power
-        BAT3[Cặp Pin 3]:::power
-        BUCK1[Buck LM2596 1 <br> Hạ áp 5.0V]:::power
-        BUCK2[Buck LM2596 2 <br> Hạ áp 5.0V]:::power
-        GND_HUB((TRẠM MASS CHUNG <br> Common GND)):::mass
-    end
+skinparam rectangle {
+  BackgroundColor<<power>> #F9D0C4
+  BorderColor<<power>> #E83E8C
+  BackgroundColor<<input>> #D4EDDA
+  BorderColor<<input>> #28A745
+  BackgroundColor<<process>> #CCE5FF
+  BorderColor<<process>> #007BFF
+  BackgroundColor<<output>> #FFF3CD
+  BorderColor<<output>> #FFC107
+  BackgroundColor<<mass>> #E2E3E5
+  BorderColor<<mass>> #343A40
+}
 
-    %% KHỐI ĐẦU VÀO
-    subgraph Inputs[KHỐI CẢM BIẾN - SENSORS]
-        LIDAR[Lidar LDS02RR]:::input
-        MPU[MPU6050 IMU]:::input
-        ENC_L[Encoder Bánh Trái]:::input
-        ENC_R[Encoder Bánh Phải]:::input
-        CAM[Module Camera]:::input
-    end
+package "KHOI NGUON - 3 PIN CACH LY" as PowerSystem {
+  rectangle "Cap Pin 1" as BAT1 <<power>>
+  rectangle "Cap Pin 2" as BAT2 <<power>>
+  rectangle "Cap Pin 3" as BAT3 <<power>>
+  rectangle "Buck LM2596 1\nHa ap 5.0V" as BUCK1 <<power>>
+  rectangle "Buck LM2596 2\nHa ap 5.0V" as BUCK2 <<power>>
+  rectangle "TRAM MASS CHUNG\nCommon GND" as GND_HUB <<mass>>
+}
 
-    %% KHỐI XỬ LÝ
-    subgraph Processing[KHỐI XỬ LÝ - MCU]
-        ESP32[ESP32 <br> micro-ROS Agent]:::process
-        ESP32_CAM[ESP32-CAM <br> Video Streamer]:::process
-    end
+package "KHOI CAM BIEN - SENSORS" as Inputs {
+  rectangle "Lidar LDS02RR" as LIDAR <<input>>
+  rectangle "MPU6050 IMU" as MPU <<input>>
+  rectangle "Encoder Banh Trai" as ENC_L <<input>>
+  rectangle "Encoder Banh Phai" as ENC_R <<input>>
+  rectangle "Module Camera" as CAM <<input>>
+}
 
-    %% KHỐI ĐẦU RA
-    subgraph Outputs [KHỐI CHẤP HÀNH - ACTUATORS]
-        DRV_MOT[TB6612 Drive <br> Kênh A: Trái — Kênh B: Phải]:::output
-        DRV_LIDAR[TB6612 Lidar]:::output
-        MOT_L((Động cơ Bánh Trái)):::output
-        MOT_R((Động cơ Bánh Phải)):::output
-        MOT_LID[Động cơ Lidar]:::output
-        SERVO[2 Servo SG90 <br> Pan & Tilt]:::output
-    end
+package "KHOI XU LY - MCU" as Processing {
+  rectangle "ESP32\nmicro-ROS Agent" as ESP32 <<process>>
+  rectangle "ESP32-CAM\nVideo Streamer" as ESP32_CAM <<process>>
+}
 
-    %% LUỒNG KẾT NỐI MASS CHUNG (gộp về 1 đường về GND_HUB)
-    BAT1 & BAT2 & BAT3 & BUCK1 & BUCK2 & DRV_MOT & DRV_LIDAR -. "GND chung (-)" .-> GND_HUB
+package "KHOI CHAP HANH - ACTUATORS" as Outputs {
+  rectangle "TB6612 Drive\nKenh A: Trai - Kenh B: Phai" as DRV_MOT <<output>>
+  rectangle "TB6612 Lidar" as DRV_LIDAR <<output>>
+  rectangle "Dong co Banh Trai" as MOT_L <<output>>
+  rectangle "Dong co Banh Phai" as MOT_R <<output>>
+  rectangle "Dong co Lidar" as MOT_LID <<output>>
+  rectangle "2 Servo SG90\nPan & Tilt" as SERVO <<output>>
+}
 
-    %% KẾT NỐI NGUỒN DƯƠNG (Nét đứt)
-    BAT1 -.-> |"+"| BUCK1
-    BAT3 -.-> |"+"| BUCK2
-    BAT2 -.-> |"+ V_MOT"| DRV_MOT
-    BUCK1 -.-> |"5.0V"| ESP32 & ESP32_CAM & MPU & LIDAR & ENC_L & ENC_R
-    BUCK2 -.-> |"5.0V"| SERVO & DRV_LIDAR
+rectangle "Mang WiFi" as WIFI <<process>>
 
-    %% LUỒNG TÍN HIỆU (Nét liền)
-    LIDAR == "UART (RX2:16)" ==> ESP32
-    MPU == "I2C (SDA:21, SCL:22)" ==> ESP32
-    ENC_L == "Ngắt (Pin 32)" ==> ESP32
-    ENC_R == "Ngắt (Pin 33)" ==> ESP32
-    CAM == "Dữ liệu ảnh" ==> ESP32_CAM
-    ESP32_CAM == "HTTP Stream" ==> WIFI((Mạng WiFi))
-    ESP32 == "PWMA/AIN1/AIN2 (25,26,27)" ==> DRV_MOT
-    ESP32 == "PWMB/BIN1/BIN2 (14,23,13)" ==> DRV_MOT
-    ESP32 == "PWM (Pin 4)" ==> DRV_LIDAR
-    ESP32 == "PWM (Pin 18,19)" ==> SERVO
+' GND chung (net dut)
+BAT1 ..> GND_HUB : GND (-)
+BAT2 ..> GND_HUB : GND (-)
+BAT3 ..> GND_HUB : GND (-)
+BUCK1 ..> GND_HUB : GND (-)
+BUCK2 ..> GND_HUB : GND (-)
+DRV_MOT ..> GND_HUB : GND (-)
+DRV_LIDAR ..> GND_HUB : GND (-)
 
-    DRV_MOT == "Kênh A" ==> MOT_L
-    DRV_MOT == "Kênh B" ==> MOT_R
-    DRV_LIDAR --> MOT_LID
+' Nguon duong (net dut)
+BAT1 ..> BUCK1 : +
+BAT3 ..> BUCK2 : +
+BAT2 ..> DRV_MOT : + V_MOT
+BUCK1 ..> ESP32 : 5.0V
+BUCK1 ..> ESP32_CAM : 5.0V
+BUCK1 ..> MPU : 5.0V
+BUCK1 ..> LIDAR : 5.0V
+BUCK1 ..> ENC_L : 5.0V
+BUCK1 ..> ENC_R : 5.0V
+BUCK2 ..> SERVO : 5.0V
+BUCK2 ..> DRV_LIDAR : 5.0V
+
+' Tin hieu (net lien)
+LIDAR --> ESP32 : UART (RX2:16)
+MPU --> ESP32 : I2C (SDA:21, SCL:22)
+ENC_L --> ESP32 : Ngat (Pin 32)
+ENC_R --> ESP32 : Ngat (Pin 33)
+CAM --> ESP32_CAM : Du lieu anh
+ESP32_CAM --> WIFI : HTTP Stream
+ESP32 --> DRV_MOT : PWMA/AIN1/AIN2 (25,26,27)
+ESP32 --> DRV_MOT : PWMB/BIN1/BIN2 (14,23,13)
+ESP32 --> DRV_LIDAR : PWM (Pin 4)
+ESP32 --> SERVO : PWM (Pin 18,19)
+
+DRV_MOT --> MOT_L : Kenh A
+DRV_MOT --> MOT_R : Kenh B
+DRV_LIDAR --> MOT_LID
+@enduml
 ```
 
 ### Trích dẫn Datasheet các linh kiện chính

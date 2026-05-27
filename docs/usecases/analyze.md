@@ -13,77 +13,102 @@ SLAM Tracking Car là hệ thống ROS2 Humble gồm bốn tầng chức năng, 
 
 Bốn tầng được xếp theo chiều dọc. Dữ liệu cảm biến đi từ phần cứng lên trên, lệnh điều khiển đi từ trên xuống phần cứng.
 
-```mermaid
-flowchart TB
-    classDef ui fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
-    classDef bridge fill:#fff3e0,stroke:#ef6c00,color:#e65100
-    classDef app fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-    classDef core fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
-    classDef hw fill:#fbe9e7,stroke:#d84315,color:#bf360c
-    classDef store fill:#eceff1,stroke:#455a64,color:#263238
+```plantuml
+@startuml
+title Kiến trúc phân tầng SLAM Tracking Car
 
-    UI["Web Dashboard<br/>(Next.js + roslib.js)"]:::ui
+skinparam rectangle {
+  BackgroundColor<<ui>> #E3F2FD
+  BorderColor<<ui>> #1976D2
+  FontColor<<ui>> #0D47A1
+  BackgroundColor<<bridge>> #FFF3E0
+  BorderColor<<bridge>> #EF6C00
+  FontColor<<bridge>> #E65100
+  BackgroundColor<<app>> #E8F5E9
+  BorderColor<<app>> #2E7D32
+  FontColor<<app>> #1B5E20
+  BackgroundColor<<core>> #F3E5F5
+  BorderColor<<core>> #7B1FA2
+  FontColor<<core>> #4A148C
+  BackgroundColor<<hw>> #FBE9E7
+  BorderColor<<hw>> #D84315
+  FontColor<<hw>> #BF360C
+}
+skinparam database {
+  BackgroundColor<<store>> #ECEFF1
+  BorderColor<<store>> #455A64
+  FontColor<<store>> #263238
+}
 
-    subgraph L_BRIDGE["Bridge Layer"]
-        direction LR
-        RB["rosbridge_websocket<br/>:9090"]:::bridge
-        IMR["image_republisher<br/>raw → JPEG"]:::bridge
-        UROS["micro_ros_agent<br/>UDP :8888"]:::bridge
-    end
+rectangle "Web Dashboard\n(Next.js + roslib.js)" as UI <<ui>>
 
-    subgraph L_APP["ROS2 Application"]
-        direction LR
-        CAMB["cam_bridge_node"]:::app
-        ENR["enrollment_node"]:::app
-        PT["person_tracker_node"]:::app
-        TC["tracking_controller_node"]:::app
-        MM["map_manager_node"]:::app
-    end
+package "Bridge Layer" {
+  rectangle "rosbridge_websocket\n:9090" as RB <<bridge>>
+  rectangle "image_republisher\nraw -> JPEG" as IMR <<bridge>>
+  rectangle "micro_ros_agent\nUDP :8888" as UROS <<bridge>>
+}
 
-    subgraph L_CORE["ROS2 Core Stack"]
-        direction LR
-        RSP["robot_state_publisher"]:::core
-        EKF["ekf_filter_node"]:::core
-        SLAM["slam_toolbox"]:::core
-        EXP["explore_lite"]:::core
-        NAV2["Nav2 Stack<br/>(amcl, planner,<br/>controller, BT, …)"]:::core
-        MS["map_server"]:::core
-    end
+package "ROS2 Application" {
+  rectangle "cam_bridge_node" as CAMB <<app>>
+  rectangle "enrollment_node" as ENR <<app>>
+  rectangle "person_tracker_node" as PT <<app>>
+  rectangle "tracking_controller_node" as TC <<app>>
+  rectangle "map_manager_node" as MM <<app>>
+}
 
-    subgraph L_HW["Firmware (ESP32)"]
-        direction LR
-        ESP32M["ESP32 Main<br/>motors · encoders<br/>IMU · LiDAR · servo"]:::hw
-        ESP32C["ESP32-CAM<br/>MJPEG :80"]:::hw
-    end
+package "ROS2 Core Stack" {
+  rectangle "robot_state_publisher" as RSP <<core>>
+  rectangle "ekf_filter_node" as EKF <<core>>
+  rectangle "slam_toolbox" as SLAM <<core>>
+  rectangle "explore_lite" as EXP <<core>>
+  rectangle "Nav2 Stack\n(amcl, planner,\ncontroller, BT, ...)" as NAV2 <<core>>
+  rectangle "map_server" as MS <<core>>
+}
 
-    DB[("face_db.sqlite")]:::store
-    MAPS[("maps/")]:::store
+package "Firmware (ESP32)" {
+  rectangle "ESP32 Main\nmotors · encoders\nIMU · LiDAR · servo" as ESP32M <<hw>>
+  rectangle "ESP32-CAM\nMJPEG :80" as ESP32C <<hw>>
+}
 
-    UI <--> RB
-    RB <--> IMR
-    RB <--> L_APP
-    RB <--> SLAM
-    RB <--> NAV2
+database "face_db.sqlite" as DB <<store>>
+database "maps/" as MAPS <<store>>
 
-    IMR --> CAMB
-    CAMB --> PT
-    PT --> TC
-    PT <--> DB
-    ENR <--> DB
-    MM <--> MAPS
-    MM <--> MS
+UI <--> RB
+RB <--> IMR
+RB <--> CAMB
+RB <--> ENR
+RB <--> PT
+RB <--> TC
+RB <--> MM
+RB <--> SLAM
+RB <--> NAV2
 
-    L_APP --> UROS
-    NAV2 --> UROS
-    EXP --> NAV2
-    SLAM --> EXP
-    MS --> NAV2
-    RSP --> L_CORE
-    EKF --> SLAM
-    EKF --> NAV2
+IMR --> CAMB
+CAMB --> PT
+PT --> TC
+PT <--> DB
+ENR <--> DB
+MM <--> MAPS
+MM <--> MS
 
-    UROS <--> ESP32M
-    CAMB <-- "HTTP MJPEG" --> ESP32C
+CAMB --> UROS
+ENR --> UROS
+PT --> UROS
+TC --> UROS
+MM --> UROS
+NAV2 --> UROS
+EXP --> NAV2
+SLAM --> EXP
+MS --> NAV2
+RSP --> SLAM
+RSP --> NAV2
+RSP --> EKF
+EKF --> SLAM
+EKF --> NAV2
+
+UROS <--> ESP32M
+CAMB <--> ESP32C : HTTP MJPEG
+@enduml
 ```
 
 ### Luồng dữ liệu cảm biến và lệnh điều khiển
@@ -92,96 +117,123 @@ flowchart TB
 
 #### Luồng A — Lập bản đồ SLAM và Điều hướng tự động
 
-```mermaid
-flowchart LR
-    classDef hw fill:#fbe9e7,stroke:#d84315
-    classDef bridge fill:#fff3e0,stroke:#ef6c00
-    classDef core fill:#f3e5f5,stroke:#7b1fa2
-    classDef app fill:#e8f5e9,stroke:#2e7d32
-    classDef ui fill:#e3f2fd,stroke:#1976d2
-    classDef store fill:#eceff1,stroke:#455a64
+```plantuml
+@startuml
+title Luong A - SLAM va Dieu huong tu dong
+left to right direction
 
-    ESP["ESP32 Main"]:::hw
-    UROS["micro_ros_agent"]:::bridge
-    EKF["ekf_filter_node"]:::core
-    RSP["robot_state_publisher"]:::core
-    SLAM["slam_toolbox"]:::core
-    EXP["explore_lite"]:::core
-    MM["map_manager_node"]:::app
-    MS["map_server"]:::core
-    NAV2["Nav2 Stack"]:::core
-    RB["rosbridge"]:::bridge
-    UI["Dashboard"]:::ui
-    MAPS[("maps/")]:::store
+skinparam rectangle {
+  BackgroundColor<<hw>> #FBE9E7
+  BorderColor<<hw>> #D84315
+  BackgroundColor<<bridge>> #FFF3E0
+  BorderColor<<bridge>> #EF6C00
+  BackgroundColor<<core>> #F3E5F5
+  BorderColor<<core>> #7B1FA2
+  BackgroundColor<<app>> #E8F5E9
+  BorderColor<<app>> #2E7D32
+  BackgroundColor<<ui>> #E3F2FD
+  BorderColor<<ui>> #1976D2
+}
+skinparam database {
+  BackgroundColor<<store>> #ECEFF1
+  BorderColor<<store>> #455A64
+}
 
-    ESP -- "/scan · /odom<br/>/imu/data_raw · /joint_states" --> UROS
-    UROS -- "/odom · /imu/data_raw" --> EKF
-    UROS -- "/scan" --> SLAM
-    EKF -- "TF odom→base · /odometry/filtered" --> SLAM
-    EKF --> NAV2
-    RSP -- "TF tĩnh URDF" --> SLAM
-    RSP --> NAV2
+rectangle "ESP32 Main" as ESP <<hw>>
+rectangle "micro_ros_agent" as UROS <<bridge>>
+rectangle "ekf_filter_node" as EKF <<core>>
+rectangle "robot_state_publisher" as RSP <<core>>
+rectangle "slam_toolbox" as SLAM <<core>>
+rectangle "explore_lite" as EXP <<core>>
+rectangle "map_manager_node" as MM <<app>>
+rectangle "map_server" as MS <<core>>
+rectangle "Nav2 Stack" as NAV2 <<core>>
+rectangle "rosbridge" as RB <<bridge>>
+rectangle "Dashboard" as UI <<ui>>
+database "maps/" as MAPS <<store>>
 
-    SLAM -- "/map" --> EXP
-    SLAM -- "/map · TF map→odom" --> NAV2
-    SLAM -- "/map" --> RB
+ESP --> UROS : /scan · /odom\n/imu/data_raw · /joint_states
+UROS --> EKF : /odom · /imu/data_raw
+UROS --> SLAM : /scan
+EKF --> SLAM : TF odom->base\n/odometry/filtered
+EKF --> NAV2
+RSP --> SLAM : TF tinh URDF
+RSP --> NAV2
 
-    MAPS <--> MM
-    MM -- "service load_map<br/>+ lifecycle" --> MS
-    MM --> NAV2
-    MS -- "/map" --> NAV2
+SLAM --> EXP : /map
+SLAM --> NAV2 : /map · TF map->odom
+SLAM --> RB : /map
 
-    EXP -- "action navigate_to_pose" --> NAV2
-    UI -- "/initialpose · goal" --> RB
-    RB --> NAV2
+MAPS <--> MM
+MM --> MS : service load_map\n+ lifecycle
+MM --> NAV2
+MS --> NAV2 : /map
 
-    NAV2 -- "/cmd_vel" --> UROS
-    UROS -- "/cmd_vel" --> ESP
+EXP --> NAV2 : action navigate_to_pose
+UI --> RB : /initialpose · goal
+RB --> NAV2
+
+NAV2 --> UROS : /cmd_vel
+UROS --> ESP : /cmd_vel
+@enduml
 ```
 
 #### Luồng B — Theo dõi người và Đăng ký khuôn mặt
 
-```mermaid
-flowchart LR
-    classDef hw fill:#fbe9e7,stroke:#d84315
-    classDef bridge fill:#fff3e0,stroke:#ef6c00
-    classDef app fill:#e8f5e9,stroke:#2e7d32
-    classDef ui fill:#e3f2fd,stroke:#1976d2
-    classDef store fill:#eceff1,stroke:#455a64
+```plantuml
+@startuml
+title Luong B - Theo doi nguoi va Dang ky khuon mat
+left to right direction
 
-    CAM["ESP32-CAM<br/>MJPEG"]:::hw
-    ESP["ESP32 Main"]:::hw
-    UROS["micro_ros_agent"]:::bridge
-    CAMB["cam_bridge_node"]:::app
-    IMR["image_republisher"]:::bridge
-    RB["rosbridge"]:::bridge
-    UI["Dashboard<br/>+ webcam"]:::ui
-    ENR["enrollment_node"]:::app
-    PT["person_tracker_node"]:::app
-    TC["tracking_controller_node"]:::app
-    DB[("face_db.sqlite")]:::store
+skinparam rectangle {
+  BackgroundColor<<hw>> #FBE9E7
+  BorderColor<<hw>> #D84315
+  BackgroundColor<<bridge>> #FFF3E0
+  BorderColor<<bridge>> #EF6C00
+  BackgroundColor<<app>> #E8F5E9
+  BorderColor<<app>> #2E7D32
+  BackgroundColor<<ui>> #E3F2FD
+  BorderColor<<ui>> #1976D2
+}
+skinparam database {
+  BackgroundColor<<store>> #ECEFF1
+  BorderColor<<store>> #455A64
+}
 
-    CAM -- "HTTP /stream" --> CAMB
-    CAMB -- "/camera/image_raw<br/>/camera_info" --> PT
-    CAMB --> IMR
-    IMR -- "/camera/image_raw/compressed" --> RB
-    RB <--> UI
+rectangle "ESP32-CAM\nMJPEG" as CAM <<hw>>
+rectangle "ESP32 Main" as ESP <<hw>>
+rectangle "micro_ros_agent" as UROS <<bridge>>
+rectangle "cam_bridge_node" as CAMB <<app>>
+rectangle "image_republisher" as IMR <<bridge>>
+rectangle "rosbridge" as RB <<bridge>>
+rectangle "Dashboard\n+ webcam" as UI <<ui>>
+rectangle "enrollment_node" as ENR <<app>>
+rectangle "person_tracker_node" as PT <<app>>
+rectangle "tracking_controller_node" as TC <<app>>
+database "face_db.sqlite" as DB <<store>>
 
-    UI -- "/enrollment/image" --> RB
-    RB --> ENR
-    ENR -- "/enrollment/status" --> RB
-    ENR <-- "Add/Remove/SetTarget srv" --> DB
-    PT <-- "hot-reload embeddings" --> DB
+CAM --> CAMB : HTTP /stream
+CAMB --> PT : /camera/image_raw\n/camera_info
+CAMB --> IMR
+IMR --> RB : /camera/image_raw/compressed
+RB <--> UI
 
-    ESP -- "/scan · /joint_states" --> UROS
-    UROS -- "/scan" --> PT
-    UROS -- "/scan · /joint_states" --> TC
+UI --> RB : /enrollment/image
+RB --> ENR
+ENR --> RB : /enrollment/status
+ENR <--> DB : Add/Remove/SetTarget srv
+PT <--> DB : hot-reload embeddings
 
-    PT -- "/tracked_persons" --> TC
-    TC -- "/cmd_vel" --> UROS
-    TC -- "/servo_cmd" --> UROS
-    TC -- "/tracking_controller/status" --> RB
-    UROS -- "/cmd_vel · /servo_cmd" --> ESP
+ESP --> UROS : /scan · /joint_states
+UROS --> PT : /scan
+UROS --> TC : /scan · /joint_states
+
+PT --> TC : /tracked_persons
+TC --> UROS : /cmd_vel
+TC --> UROS : /servo_cmd
+TC --> RB : /tracking_controller/status
+UROS --> ESP : /cmd_vel · /servo_cmd
+@enduml
 ```
 
 ## Giải thích các nút (node)

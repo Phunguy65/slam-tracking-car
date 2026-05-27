@@ -157,16 +157,16 @@ Entity *-- VO
 - **Input**: `<Command/Query>` — `{ field1: Type, ... }`
 - **Output**: `Result<ResponseDTO, Error>`
 - **Gọi đến**:
-    - `<Repository>.method()` — <mục đích>
-    - `<Port>.method()` — <mục đích> (nếu có actor hỗ trợ bên ngoài)
+  - `<Repository>.method()` — <mục đích>
+  - `<Port>.method()` — <mục đích> (nếu có actor hỗ trợ bên ngoài)
 - **Phát sinh sự kiện**: `<DomainEvent>` (nếu có)
 
 #### Repository: `<RepositoryName>`
 
 - **Nhiệm vụ**: Truy xuất/lưu trữ domain entity `<Entity>`.
 - **Phương thức liên quan đến UC**:
-    - `findById(id): Optional<Entity>` — <mục đích>
-    - `save(entity): Entity` — <mục đích>
+  - `findById(id): Optional<Entity>` — <mục đích>
+  - `save(entity): Entity` — <mục đích>
 - **Table**: `<table_name>`
 
 #### Port: `<PortName>` _(nếu có)_
@@ -174,7 +174,7 @@ Entity *-- VO
 - **Nhiệm vụ**: Giao tiếp với actor hỗ trợ bên ngoài (vd: Stripe, Email
   Service,...).
 - **Phương thức liên quan đến UC**:
-    - `methodName(params): ReturnType` — <mục đích>
+  - `methodName(params): ReturnType` — <mục đích>
 
 #### Lược đồ tuần tự nội bộ PM
 
@@ -240,25 +240,3 @@ CTL --> Actor: <HTTP status> + <ResponseDTO>
      Bổ sung khi hoàn thành implementation. -->
 
 Chưa hiện thực. Sẽ bổ sung ảnh chụp màn hình khi hoàn thành.
-
-### Bảng tham chiếu dò vết
-
-<!-- Dùng để dò vết, đối chiếu, sửa và kiểm thử.
-     Mỗi dòng map từ UC → Controller endpoint → UseCase → Repository method → DB table.
-     Giúp đảm bảo không có chức năng bị bỏ sót khi hiện thực. -->
-
-| Use Case | Controller | Endpoint              | UseCase        | Repository             | Table      |
-| -------- | ---------- | --------------------- | -------------- | ---------------------- | ---------- |
-| UC-XX    | XxxCtl     | `METHOD /v1/path`     | XxxUseCase     | XxxRepository.method() | table_name |
-|          |            | `METHOD /v1/path/:id` | XxxByIdUseCase | XxxRepository.method() | table_name |
-
-### Tiêu chí kiểm thử
-
-<!-- Tiêu chí kiểm thử ở mức phân tích (mục III trong spec).
-     Các tiêu chí mức thiết kế và hiện thực sẽ bổ sung sau. -->
-
-| Tiêu chí             | Phép thử                                                                   | Kết quả mong đợi                          | Ghi chú                              |
-| -------------------- | -------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------ |
-| Toàn diện (coverage) | Đối chiếu Activity Diagram ↔ Sequence Diagram: mọi luồng đều được thể hiện | Không bỏ sót luồng chính lẫn ngoại lệ     | Rà soát chéo giữa mục 2 và mục 3     |
-| Nhất quán            | Rà soát tên lớp, trạng thái, API giữa các lược đồ trong cùng UC            | Không mâu thuẫn giữa các mục 2–6          | Đặc biệt kiểm tra tên trong mục 5–6  |
-| Truy vết             | Đối chiếu bảng tham chiếu (mục 7) với lược đồ tuần tự nội bộ (mục 6.5)     | Mọi tương tác trong sequence đều có entry | Kiểm tra không thiếu endpoint/method |

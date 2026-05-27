@@ -105,6 +105,7 @@ PLANTUML_BIN="$PLANTUML_WRAPPER" \
 pandoc "${INPUT_FILES[@]}" \
     -o "$OUTPUT_FILE" \
     --lua-filter="$DIAGRAM_LUA" \
+    --lua-filter="$REPO_ROOT/docs/br.lua" \
     --extract-media="$MEDIA_DIR" \
     --resource-path="$REPO_ROOT/docs" \
 	--reference-doc="$REPO_ROOT/docs/original.docx" \
