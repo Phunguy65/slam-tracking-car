@@ -3,7 +3,7 @@
  */
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useService } from '@/hooks/use-service.ts';
 import { useTopic } from '@/hooks/use-topic.ts';
 import { useDashboardStore } from '@/stores/dashboard-store.ts';
@@ -28,10 +28,26 @@ import type {
  * Subscribes to enrollment status topic and provides service call methods.
  */
 export function useEnrollment() {
-    const store = useEnrollmentStore();
+    const persons = useEnrollmentStore((s) => s.persons);
+    const targetId = useEnrollmentStore((s) => s.targetId);
+    const enrollName = useEnrollmentStore((s) => s.enrollName);
+    const isLoading = useEnrollmentStore((s) => s.isLoading);
+    const error = useEnrollmentStore((s) => s.error);
+    const status = useEnrollmentStore((s) => s.status);
+    const setPersons = useEnrollmentStore((s) => s.setPersons);
+    const setTargetId = useEnrollmentStore((s) => s.setTargetId);
+    const setLoading = useEnrollmentStore((s) => s.setLoading);
+    const setError = useEnrollmentStore((s) => s.setError);
+    const addPersonToStore = useEnrollmentStore((s) => s.addPerson);
+    const removePersonFromStore = useEnrollmentStore((s) => s.removePerson);
+    const resetEnrollment = useEnrollmentStore((s) => s.resetEnrollment);
+    const setEnrollName = useEnrollmentStore((s) => s.setEnrollName);
+    const setStatus = useEnrollmentStore((s) => s.setStatus);
     const setDashboardTargetPerson = useDashboardStore(
         (s) => s.setTargetPerson,
     );
+
+    const hasFetched = useRef(false);
 
     // Services
     const addPersonService = useService<AddPersonRequest, AddPersonResponse>(
@@ -62,38 +78,40 @@ export function useEnrollment() {
     // Refresh persons list from service
     const refreshPersons = useCallback(async () => {
         try {
-            store.setLoading(true);
+            setLoading(true);
             const response = await listPersonsService.call({});
-            store.setPersons(response.persons || []);
+            setPersons(response.persons || []);
         } catch (error) {
             console.error('[useEnrollment] Failed to list persons:', error);
         } finally {
-            store.setLoading(false);
+            setLoading(false);
         }
-    }, [listPersonsService, store]);
+    }, [listPersonsService, setLoading, setPersons]);
 
     // Refresh current target from service
     const refreshTarget = useCallback(async () => {
         try {
             const response = await getTargetService.call({});
-            const targetId = response.person_id || null;
-            store.setTargetId(targetId);
-            setDashboardTargetPerson(targetId);
+            const targetIdValue = response.person_id || null;
+            setTargetId(targetIdValue);
+            setDashboardTargetPerson(targetIdValue);
         } catch (error) {
             console.error('[useEnrollment] Failed to get target:', error);
         }
-    }, [getTargetService, store, setDashboardTargetPerson]);
+    }, [getTargetService, setTargetId, setDashboardTargetPerson]);
 
     // Subscribe to enrollment status
     useTopic<EnrollmentStatus>(
         '/enrollment/status',
         'slam_car_interfaces/msg/EnrollmentStatus',
-        store.setStatus,
+        setStatus,
         { throttleRate: 100 },
     );
 
     // Load initial persons and target on mount
     useEffect(() => {
+        if (hasFetched.current) return;
+        hasFetched.current = true;
         refreshPersons();
         refreshTarget();
     }, [refreshPersons, refreshTarget]);
@@ -101,26 +119,24 @@ export function useEnrollment() {
     // Add a new person
     const addPerson = useCallback(
         async (name: string) => {
-            store.setError(null);
-            store.setLoading(true);
+            setError(null);
+            setLoading(true);
 
             try {
                 const response = await addPersonService.call({ name });
 
                 if (response.success) {
-                    // Optimistically add to list (will be refreshed anyway)
-                    store.addPerson({
+                    addPersonToStore({
                         person_id: response.person_id,
                         name,
-                        thumbnail_base64: '', // Will be updated on refresh
+                        thumbnail_base64: '',
                         created_at: new Date().toISOString(),
                     });
-                    store.resetEnrollment();
-                    // Refresh to get proper thumbnail
+                    resetEnrollment();
                     await refreshPersons();
                     return response.person_id;
                 } else {
-                    store.setError(response.error_message);
+                    setError(response.error_message);
                     return null;
                 }
             } catch (error) {
@@ -128,20 +144,27 @@ export function useEnrollment() {
                     error instanceof Error
                         ? error.message
                         : 'Failed to add person';
-                store.setError(msg);
+                setError(msg);
                 return null;
             } finally {
-                store.setLoading(false);
+                setLoading(false);
             }
         },
-        [addPersonService, store, refreshPersons],
+        [
+            addPersonService,
+            setError,
+            setLoading,
+            addPersonToStore,
+            resetEnrollment,
+            refreshPersons,
+        ],
     );
 
     // Remove a person
     const removePerson = useCallback(
         async (personId: string) => {
-            store.setError(null);
-            store.setLoading(true);
+            setError(null);
+            setLoading(true);
 
             try {
                 const response = await removePersonService.call({
@@ -149,10 +172,10 @@ export function useEnrollment() {
                 });
 
                 if (response.success) {
-                    store.removePerson(personId);
+                    removePersonFromStore(personId);
                     return true;
                 } else {
-                    store.setError(response.error_message);
+                    setError(response.error_message);
                     return false;
                 }
             } catch (error) {
@@ -160,19 +183,19 @@ export function useEnrollment() {
                     error instanceof Error
                         ? error.message
                         : 'Failed to remove person';
-                store.setError(msg);
+                setError(msg);
                 return false;
             } finally {
-                store.setLoading(false);
+                setLoading(false);
             }
         },
-        [removePersonService, store],
+        [removePersonService, setError, setLoading, removePersonFromStore],
     );
 
     // Set tracking target
     const setTarget = useCallback(
         async (personId: string | null) => {
-            store.setError(null);
+            setError(null);
 
             try {
                 const response = await setTargetService.call({
@@ -180,11 +203,11 @@ export function useEnrollment() {
                 });
 
                 if (response.success) {
-                    store.setTargetId(personId || null);
+                    setTargetId(personId || null);
                     setDashboardTargetPerson(personId || null);
                     return true;
                 } else {
-                    store.setError(response.error_message);
+                    setError(response.error_message);
                     return false;
                 }
             } catch (error) {
@@ -192,24 +215,24 @@ export function useEnrollment() {
                     error instanceof Error
                         ? error.message
                         : 'Failed to set target';
-                store.setError(msg);
+                setError(msg);
                 return false;
             }
         },
-        [setTargetService, store, setDashboardTargetPerson],
+        [setTargetService, setError, setTargetId, setDashboardTargetPerson],
     );
 
     return {
         // State
-        status: store.status,
-        persons: store.persons,
-        targetId: store.targetId,
-        enrollName: store.enrollName,
-        isLoading: store.isLoading,
-        error: store.error,
+        status,
+        persons,
+        targetId,
+        enrollName,
+        isLoading,
+        error,
 
         // State setters
-        setEnrollName: store.setEnrollName,
+        setEnrollName,
 
         // Actions
         addPerson,
