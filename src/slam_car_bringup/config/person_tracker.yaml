@@ -7,6 +7,7 @@ enrollment_node:
 cam_bridge_node:
   ros__parameters:
     camera_fov_horizontal_deg: 62.0
+    flip_image: true
 
 person_tracker_node:
   ros__parameters:

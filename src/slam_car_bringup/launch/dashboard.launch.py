@@ -6,6 +6,9 @@ Launches:
   - rosbridge_websocket (WebSocket bridge on port 9090)
   - image_transport republisher (raw → compressed JPEG)
   - map_manager_node (map listing, loading, mode switching)
+  - enrollment_node (face enrollment + person database for tracking tab)
+  - person_tracker_node (body/face detection + recognition → /tracked_persons)
+  - tracking_controller_node (servo + wheel follow control → /cmd_vel)
   - SLAM Toolbox (mapping mode, always loaded)
   - Nav2 stack (navigation mode, lifecycle managed — starts inactive)
   - m-explore (frontier exploration, conditional)
@@ -111,6 +114,42 @@ def generate_launch_description():
         parameters=[
             {"maps_directory": LaunchConfiguration("maps_directory")},
         ],
+    )
+
+    # ── Enrollment Node ──────────────────────────────────────
+    # Provides /enrollment/list_persons, /enrollment/get_target, etc.
+    # Required by the web dashboard's Tracking tab
+    person_tracker_config = PathJoinSubstitution(
+        [pkg_share, "config", "person_tracker.yaml"]
+    )
+
+    enrollment_node = Node(
+        package="slam_car_perception",
+        executable="enrollment_node",
+        name="enrollment_node",
+        output="screen",
+        parameters=[person_tracker_config],
+    )
+
+    # ── Person Tracker Node ──────────────────────────────────
+    # Detects bodies (YOLOv8) + faces (InsightFace), matches against
+    # enrolled persons, publishes /tracked_persons
+    person_tracker_node = Node(
+        package="slam_car_perception",
+        executable="person_tracker_node",
+        name="person_tracker_node",
+        output="screen",
+        parameters=[person_tracker_config],
+    )
+
+    # ── Tracking Controller Node ─────────────────────────────
+    # Subscribes /tracked_persons, controls servo + wheels via /cmd_vel
+    tracking_controller_node = Node(
+        package="slam_car_perception",
+        executable="tracking_controller_node",
+        name="tracking_controller_node",
+        output="screen",
+        parameters=[person_tracker_config],
     )
 
     # ── SLAM Toolbox (always running for mapping mode) ───────
@@ -262,6 +301,9 @@ def generate_launch_description():
             rosbridge,
             image_republisher,
             map_manager,
+            enrollment_node,
+            person_tracker_node,
+            tracking_controller_node,
             # SLAM (always active for mapping)
             slam_toolbox,
             explore_node,

@@ -40,6 +40,7 @@ export function WebcamCapture({
     // Start webcam
     useEffect(() => {
         let stream: MediaStream | null = null;
+        const abortController = new AbortController();
 
         async function startCamera() {
             try {
@@ -52,13 +53,35 @@ export function WebcamCapture({
                     audio: false,
                 });
 
+                // Check if component unmounted during getUserMedia
+                if (abortController.signal.aborted) {
+                    return;
+                }
+
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
-                    await videoRef.current.play();
-                    setIsStreaming(true);
-                    setError(null);
+
+                    try {
+                        await videoRef.current.play();
+                        setIsStreaming(true);
+                        setError(null);
+                    } catch (playErr) {
+                        // Ignore AbortError from play() - normal cleanup behavior
+                        if (
+                            playErr instanceof DOMException
+                            && playErr.name === 'AbortError'
+                        ) {
+                            return;
+                        }
+                        throw playErr;
+                    }
                 }
             } catch (err) {
+                // Ignore AbortError - normal cleanup behavior when component unmounts
+                if (err instanceof DOMException && err.name === 'AbortError') {
+                    return;
+                }
+
                 console.error('[WebcamCapture] Failed to access camera:', err);
                 setError('Camera access required for enrollment');
                 setIsStreaming(false);
@@ -69,6 +92,10 @@ export function WebcamCapture({
         startCamera();
 
         return () => {
+            // Abort any pending operations first
+            abortController.abort();
+
+            // Then stop media tracks
             if (stream) {
                 stream.getTracks().forEach((track) => {
                     track.stop();

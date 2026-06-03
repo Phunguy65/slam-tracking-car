@@ -25,6 +25,7 @@ class CamBridgeNode(Node):
         self.declare_parameter("frame_id", "camera_optical_frame")
         self.declare_parameter("fps", 10)
         self.declare_parameter("camera_fov_horizontal_deg", 62.0)
+        self.declare_parameter("flip_image", False)
 
         self.cam_url = self.get_parameter("cam_url").value
         self.frame_id = self.get_parameter("frame_id").value
@@ -32,6 +33,7 @@ class CamBridgeNode(Node):
         self.camera_fov_horizontal_deg = self.get_parameter(
             "camera_fov_horizontal_deg"
         ).value
+        self.flip_image = self.get_parameter("flip_image").value
         self.camera_info = None
 
         self.publisher = self.create_publisher(Image, "/camera/image_raw", 10)
@@ -92,6 +94,9 @@ class CamBridgeNode(Node):
             self.get_logger().warn("Frame capture failed, reconnecting...")
             self._connect()
             return
+
+        if self.flip_image:
+            frame = cv2.flip(frame, -1)
 
         msg = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
         msg.header.stamp = self.get_clock().now().to_msg()

@@ -50,3 +50,5 @@ logs/
 # others
 docs/report/
 docs/spec/
+
+*.pt
