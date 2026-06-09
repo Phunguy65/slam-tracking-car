@@ -347,16 +347,76 @@ Khởi động ở trạng thái chưa cấu hình (UNCONFIGURED), được `map
 - **Vai trò**: Phát luồng video MJPEG qua máy chủ HTTP cổng 80. Bo này không phải nút micro-ROS, mà được `cam_bridge_node` chủ động kéo dữ liệu về.
 - **Đầu ra**: Điểm cuối HTTP `/stream` (định dạng multipart MJPEG).
 
+## Giải thuật
+
+Hệ thống sử dụng ba nhóm giải thuật chính, tương ứng với ba chế độ vận hành của robot.
+
+### Khám phá bản đồ (Map Exploration)
+
+| Thành phần | Giải thuật | Mô tả ngắn |
+| --- | --- | --- |
+| SLAM Toolbox | Graph-based SLAM | Xây dựng đồ thị tư thế từ dữ liệu LiDAR, tối ưu bằng Ceres Solver (Levenberg-Marquardt). |
+| Scan Matching | Correlative Scan Matching | Quét toàn bộ không gian (dx, dy, dθ) trên lưới xác suất để tìm phép biến đổi giữa hai bản quét liên tiếp, sau đó tinh chỉnh bằng tối ưu phi tuyến. |
+| Loop Closure | Chain Matching hai giai đoạn | Phát hiện vòng lặp qua so khớp thô (coarse) rồi xác nhận tinh (fine), thêm constraint vào đồ thị và chạy tối ưu toàn cục để phân bố sai số tích lũy. |
+| explore_lite | Frontier-based Exploration | Tìm biên giới (frontier) giữa vùng đã biết và chưa biết trên bản đồ, chấm điểm theo công thức `score = gain_scale × size − potential_scale × cost − orientation_scale × turn`, rồi gửi frontier tốt nhất làm đích cho Nav2. |
+
+Hàm chi phí scan matching:
+
+```
+E(T) = Σᵢ [1 - M(T · pᵢ)]²
+```
+
+Hàm chọn frontier:
+
+```
+score(f) = gain_scale × size(f) − potential_scale × cost(f) − orientation_scale × turn(f)
+```
+
+### Điều hướng tự động (Navigation)
+
+| Thành phần | Giải thuật | Mô tả ngắn |
+| --- | --- | --- |
+| AMCL | Adaptive Monte Carlo Localization (Particle Filter) | Ước lượng vị trí robot trên bản đồ tĩnh bằng tập hạt (500–2000), cập nhật trọng số qua likelihood field model, tự điều chỉnh số hạt theo KL-divergence. |
+| NavFn Planner | A* trên costmap | Tìm đường đi ngắn nhất với `f(n) = g(n) + h(n)`, trong đó `h` là khoảng cách Euclidean (admissible heuristic). |
+| DWB Controller | Dynamic Window Approach | Lấy mẫu 1600 quỹ đạo trong không gian vận tốc `(v, ω)`, mô phỏng 1.2 s về phía trước, chấm điểm bằng tổ hợp critics (PathDist, GoalDist, BaseObstacle, …). |
+| Global Costmap | Inflation Layer | Chi phí giảm theo hàm mũ quanh vật cản: `cost(d) = 253 × e^(−cost_scaling_factor × (d − robot_radius))`. |
+| Behavior Server | Recovery Behaviors | Chuỗi phục hồi khi kẹt: Spin → Backup → Wait → DriveOnHeading. |
+
+### Theo dõi người (Person Tracking)
+
+| Thành phần | Giải thuật | Mô tả ngắn |
+| --- | --- | --- |
+| Phát hiện cơ thể | YOLOv8n (one-stage CNN) | Phát hiện bounding box class `person` trong một lần forward pass, ngưỡng confidence ≥ 0.5. |
+| Nhận dạng khuôn mặt | ArcFace embedding (InsightFace buffalo_l) + Cosine Similarity | Trích vector 512 chiều chuẩn hóa L2, so khớp bằng dot product, ngưỡng nhận dạng ≥ 0.6. |
+| Theo dõi liên tục | IoU Tracking | Ghép detection giữa các frame bằng Intersection over Union ≥ 0.3; confidence decay 0.1/s khi mất khuôn mặt. |
+| Định vị người | Camera-LiDAR Bearing Fusion + Leg Clustering | Camera cung cấp bearing qua mô hình pinhole + biến đổi TF; LiDAR phân cụm chân (0.05–0.30 m), ghép cặp (khoảng cách 15–35 cm), kết hợp khi sai lệch góc ≤ 0.10 rad. |
+| Điều khiển bám | PID 3 tầng + FSM 5 trạng thái | Servo PID (50 Hz) giữ target giữa khung hình → Yaw PID (10 Hz) quay body khi servo vượt 30° → Linear PID (10 Hz) giữ khoảng cách 1.0–1.5 m. FSM chuyển qua SEARCH_CONTINUE → SEARCH_SCAN → SEARCH_ROTATE → IDLE khi mất mục tiêu. |
+| An toàn | Safety Arc Check | Quét cung ±20° phía trước từ dữ liệu `/scan`, dừng tiến nếu phát hiện vật cản trong 30 cm. |
+
+### Bảng tổng hợp giải thuật
+
+| Chức năng | Giải thuật chính | Thư viện / Framework |
+| --- | --- | --- |
+| Xây dựng bản đồ | Graph-based SLAM, Correlative Scan Matching, Ceres Solver | SLAM Toolbox |
+| Khám phá tự động | Frontier-based Exploration | explore_lite (m-explore-ros2) |
+| Định vị trên bản đồ tĩnh | Adaptive Monte Carlo Localization (Particle Filter) | Nav2 AMCL |
+| Lập đường đi toàn cục | A* trên Occupancy Grid Costmap | Nav2 NavFn Planner |
+| Điều khiển bám đường | Dynamic Window Approach (DWB) | Nav2 Controller |
+| Phát hiện người | YOLOv8n (CNN one-stage) | Ultralytics |
+| Nhận dạng khuôn mặt | ArcFace embedding + Cosine Similarity | InsightFace |
+| Định vị người (khoảng cách) | Camera-LiDAR Bearing Fusion + Leg Clustering | Tự phát triển |
+| Điều khiển theo dõi | PID 3 tầng + Finite State Machine | Tự phát triển |
+
 ## Bảng tổng hợp các tệp khởi chạy (launch file)
 
-| Tệp khởi chạy               | Bao gồm các nút                                                                                                                                                                                                                                                                |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `robot.launch.py`           | `micro_ros_agent`, `robot_state_publisher`, `cam_bridge_node`, `ekf_filter_node`                                                                                                                                                                                               |
-| `slam.launch.py`            | nội dung `robot.launch.py` + `slam_toolbox` + `rviz2`                                                                                                                                                                                                                          |
-| `navigation.launch.py`      | nội dung `robot.launch.py` + `nav2_bringup` + `rviz2`                                                                                                                                                                                                                          |
-| `simulation.launch.py`      | `gazebo`, `robot_state_publisher`, `ros_gz_bridge`, `rviz2`                                                                                                                                                                                                                    |
-| `dashboard.launch.py`       | nội dung `robot.launch.py` + `rosbridge_websocket` + `image_republisher` + `map_manager_node` + `slam_toolbox` + `explore_lite` + các nút Nav2 có vòng đời (`map_server`, `amcl`, `controller_server`, `planner_server`, `bt_navigator`, `behavior_server`)                    |
-| `person_tracking.launch.py` | nội dung `robot.launch.py` + `enrollment_node` + `person_tracker_node` + `tracking_controller_node` + `rosbridge_websocket`                                                                                                                                                    |
+| Tệp khởi chạy               | Bao gồm các nút                                                                                                                                                                                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `robot.launch.py`           | `micro_ros_agent`, `robot_state_publisher`, `cam_bridge_node`, `ekf_filter_node`                                                                                                                                                                            |
+| `slam.launch.py`            | nội dung `robot.launch.py` + `slam_toolbox` + `rviz2`                                                                                                                                                                                                       |
+| `navigation.launch.py`      | nội dung `robot.launch.py` + `nav2_bringup` + `rviz2`                                                                                                                                                                                                       |
+| `simulation.launch.py`      | `gazebo`, `robot_state_publisher`, `ros_gz_bridge`, `rviz2`                                                                                                                                                                                                 |
+| `dashboard.launch.py`       | nội dung `robot.launch.py` + `rosbridge_websocket` + `image_republisher` + `map_manager_node` + `slam_toolbox` + `explore_lite` + các nút Nav2 có vòng đời (`map_server`, `amcl`, `controller_server`, `planner_server`, `bt_navigator`, `behavior_server`) |
+| `person_tracking.launch.py` | nội dung `robot.launch.py` + `enrollment_node` + `person_tracker_node` + `tracking_controller_node` + `rosbridge_websocket`                                                                                                                                 |
 
 ## Giao diện tùy biến (`slam_car_interfaces`)
 

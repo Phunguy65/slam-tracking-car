@@ -1,878 +1,1148 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Báo cáo — Robot Tự Hành Tích Hợp SLAM</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Báo cáo Giải thuật — SLAM Tracking Car</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&family=Noto+Serif:ital,wght@0,400;0,500;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <style>
-:root {
-  --bg: #f2f1ed;
-  --surface: #e6e5e0;
-  --surface-warm: #ebeae5;
-  --fg: #26251e;
-  --fg-2: rgba(38, 37, 30, 0.9);
-  --muted: rgba(38, 37, 30, 0.55);
-  --meta: rgba(38, 37, 30, 0.4);
-  --border: rgba(38, 37, 30, 0.1);
-  --border-soft: rgba(38, 37, 30, 0.06);
-  --accent: #f54e00;
-  --accent-on: #ffffff;
-  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
-  --success: #1f8a65;
-  --warn: #eab308;
-  --danger: #cf2d56;
-  --font-display: "CursorGothic", "CursorGothic Fallback", system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-body: "jjannon", "Iowan Old Style", "Palatino Linotype", ui-serif, Georgia, Cambria, "Times New Roman", serif;
-  --font-mono: "berkeleyMono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --text-xs: 11px;
-  --text-sm: 14px;
-  --text-base: 16px;
-  --text-lg: 19.2px;
-  --text-xl: 22px;
-  --text-2xl: 26px;
-  --text-3xl: 36px;
-  --text-4xl: 72px;
-  --leading-body: 1.5;
-  --leading-tight: 1.10;
-  --tracking-display: -0.03em;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-12: 48px;
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-pill: 9999px;
-  --elev-flat: none;
-  --elev-ring: 0 0 0 1px var(--border);
-  --elev-raised: 0 28px 70px rgba(0,0,0,0.14), 0 14px 32px rgba(0,0,0,0.1), 0 0 0 1px var(--border);
-  --focus-ring: 0 4px 12px rgba(0,0,0,0.1);
-  --motion-fast: 150ms;
-  --motion-base: 200ms;
-  --ease-standard: ease;
-}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; overflow: hidden; background: var(--fg); font-family: var(--font-body); }
 
-.deck { position: relative; width: 100vw; height: 100vh; }
-.slide {
-  position: absolute; inset: 0;
-  display: none; flex-direction: column; justify-content: center;
-  padding: 80px 100px;
-  background: var(--bg);
-  color: var(--fg);
+:root {
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #5c5c5c;
+  --border: #d4d0c8;
+  --accent: #2c4a6e;
+  --font-display: 'Playfair Display', 'Noto Serif', Georgia, serif;
+  --font-body: 'Inter', -apple-system, system-ui, sans-serif;
+}
+
+body {
+  background: linear-gradient(135deg, #0f1624 0%, #162a4a 40%, #1a3a5c 70%, #0f1624 100%);
+  font-family: var(--font-body);
+  overflow: hidden;
+  height: 100vh;
+  margin: 0;
+}
+
+.deck {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: center center;
+  border-radius: 12px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
   overflow: hidden;
 }
-.slide.active { display: flex; }
 
-/* Title slide */
-.slide.title-slide {
-  justify-content: center; align-items: center; text-align: center;
-  background: var(--fg);
-  color: var(--bg);
-}
-.slide.title-slide h1 {
-  font-family: var(--font-display);
-  font-size: var(--text-4xl);
-  font-weight: 400;
-  letter-spacing: -2.16px;
-  line-height: var(--leading-tight);
-  margin-bottom: var(--space-4);
-  color: #ffffff;
-}
-.slide.title-slide .subtitle {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  color: rgba(255,255,255,0.7);
-  font-weight: 400;
-  margin-bottom: var(--space-12);
-}
-.slide.title-slide .meta {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: rgba(255,255,255,0.45);
+.slide {
+  position: absolute;
+  inset: 0;
+  width: 1920px;
+  height: 1080px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 72px 96px;
+  flex-direction: column;
+  opacity: 0;
+  display: flex;
+  pointer-events: none;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: scale(0.97);
 }
 
-/* Section slide */
-.slide.section-slide {
-  justify-content: center; align-items: flex-start;
-  background: var(--fg);
-  color: #ffffff;
+.slide.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
 }
-.slide.section-slide .section-number {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
+
+.slide-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
   letter-spacing: 0.1em;
-  color: var(--accent);
-  margin-bottom: var(--space-3);
-}
-.slide.section-slide h2 {
-  font-family: var(--font-display);
-  font-size: var(--text-3xl);
-  font-weight: 400;
-  letter-spacing: -0.72px;
-  color: #ffffff;
-}
-
-/* Content slides */
-.slide h2 {
-  font-family: var(--font-display);
-  font-size: var(--text-3xl);
-  font-weight: 400;
-  color: var(--fg);
-  margin-bottom: var(--space-8);
-  letter-spacing: -0.72px;
-}
-.slide h3 {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--fg);
-  margin-bottom: var(--space-4);
-  letter-spacing: -0.11px;
-}
-.slide p {
-  font-family: var(--font-body);
-  font-size: 17.28px;
-  line-height: var(--leading-body);
+  text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: var(--space-4);
+  font-weight: 500;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 48px;
 }
-.slide ul {
-  font-family: var(--font-body);
-  font-size: 17.28px;
-  line-height: 1.8;
+
+.slide-body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.slide-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 11px;
   color: var(--muted);
-  padding-left: var(--space-6);
-}
-.slide li { margin-bottom: var(--space-2); }
-.slide li strong { color: var(--fg); }
-.slide code {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  background: var(--surface);
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: var(--fg);
-}
-.slide .formula {
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
-  color: var(--accent);
-  background: var(--surface-warm);
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-sm);
-  border-left: 3px solid var(--accent);
-  margin: var(--space-4) 0;
-  display: inline-block;
+  letter-spacing: 0.05em;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  margin-top: 48px;
 }
 
-/* Two columns */
-.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-12); flex: 1; }
-.two-col.narrow-right { grid-template-columns: 1.2fr 0.8fr; }
+h1 { font-family: var(--font-display); font-size: 72px; font-weight: 500; line-height: 1.1; }
+h2 { font-family: var(--font-display); font-size: 48px; font-weight: 500; line-height: 1.2; margin-bottom: 32px; }
+h3 { font-family: var(--font-display); font-size: 32px; font-weight: 500; line-height: 1.3; margin-bottom: 16px; }
+.subtitle { font-size: 22px; color: var(--muted); margin-top: 16px; font-weight: 300; }
+.kicker { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; color: var(--accent); margin-bottom: 12px; }
 
-/* Diagram container */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 48px; align-items: start; }
+
 .diagram {
-  background: var(--surface-warm);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-6);
+  border-radius: 4px;
+  padding: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.diagram svg { max-width: 100%; max-height: 100%; }
 
-/* Table */
-.slide table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); font-family: var(--font-body); }
-.slide th {
+.formula {
+  font-family: 'Times New Roman', serif;
+  font-size: 24px;
+  font-style: italic;
+  background: var(--surface);
+  border-left: 3px solid var(--accent);
+  padding: 16px 24px;
+  margin: 16px 0;
+}
+
+.param-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 18px;
+}
+.param-table th, .param-table td {
+  padding: 12px 16px;
   text-align: left;
-  padding: 10px var(--space-4);
-  background: var(--surface);
-  font-weight: 600;
-  color: var(--fg);
-  border-bottom: 2px solid var(--border);
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-}
-.slide td {
-  padding: 10px var(--space-4);
   border-bottom: 1px solid var(--border);
+}
+.param-table th {
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--muted);
 }
-.slide td:first-child { font-weight: 500; color: var(--fg); }
 
-/* Badge */
-.badge {
-  display: inline-block;
-  font-size: var(--text-xs);
-  font-family: var(--font-mono);
-  padding: 3px 8px;
-  border-radius: var(--radius-pill);
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+.stat-item { border-top: 2px solid var(--fg); padding-top: 16px; }
+.stat-value { font-family: var(--font-display); font-size: 48px; font-weight: 500; }
+.stat-label { font-size: 14px; color: var(--muted); margin-top: 8px; }
+
+.flow-box {
   background: var(--surface);
-  color: var(--muted);
-  font-weight: 400;
+  border: 1px solid var(--border);
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
 }
-.badge.blue { background: rgba(31,138,101,0.1); color: var(--success); }
-.badge.red { background: rgba(207,45,86,0.1); color: var(--danger); }
-.badge.accent { background: rgba(245,78,0,0.08); color: var(--accent); }
+.flow-arrow { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 24px; }
 
-/* Counter */
-.counter {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--meta);
-  z-index: 100;
+.bullet-list { list-style: none; padding: 0; }
+.bullet-list li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.bullet-list li::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 8px;
 }
 
-/* Navigation buttons */
 .nav-controls {
   position: fixed;
   bottom: 24px;
-  right: 32px;
+  right: 24px;
   display: flex;
-  gap: var(--space-2);
-  z-index: 200;
+  gap: 8px;
+  z-index: 100;
 }
 .nav-btn {
   width: 40px;
   height: 40px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 18px;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--elev-ring);
-  transition: color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+  font-size: 16px;
+  color: #ddd;
+  transition: background 0.2s;
 }
-.nav-btn:hover {
-  color: var(--danger);
-  background: var(--surface-warm);
-}
-.nav-btn:active {
-  transform: scale(0.95);
-}
+.nav-btn:hover { background: rgba(255,255,255,0.2); }
 
-/* Dark slides (title + section) override nav */
-.dark-nav .nav-btn {
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.7);
-  box-shadow: none;
-}
-.dark-nav .nav-btn:hover {
-  background: rgba(255,255,255,0.2);
-  color: #ffffff;
-}
-.counter.dark-counter {
+.slide-counter {
+  position: fixed;
+  bottom: 28px;
+  left: 24px;
+  font-size: 12px;
   color: rgba(255,255,255,0.4);
+  font-family: var(--font-body);
+  z-index: 100;
 }
 
-/* Flow diagram styles */
-.flow-box { fill: #e6e5e0; stroke: rgba(38,37,30,0.15); stroke-width: 1.5; rx: 8; }
-.flow-box-accent { fill: rgba(245,78,0,0.06); stroke: rgba(245,78,0,0.3); stroke-width: 1.5; rx: 8; }
-.flow-box-green { fill: rgba(31,138,101,0.06); stroke: rgba(31,138,101,0.3); stroke-width: 1.5; rx: 8; }
-.flow-arrow { stroke: rgba(38,37,30,0.35); stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
-.flow-text { font-family: var(--font-display); font-size: 13px; fill: #26251e; text-anchor: middle; }
-.flow-text-sm { font-family: var(--font-mono); font-size: 11px; fill: rgba(38,37,30,0.55); text-anchor: middle; }
+.ink { background: #0e1117; color: #f0ede8; }
+.ink .slide-header { color: rgba(240,237,232,0.5); border-bottom-color: rgba(240,237,232,0.15); }
+.ink .slide-footer { color: rgba(240,237,232,0.4); border-top-color: rgba(240,237,232,0.15); }
+.ink .kicker { color: #7eb8da; }
+.ink .diagram { background: #181d25; border-color: rgba(240,237,232,0.1); }
+.ink .formula { background: #181d25; border-left-color: #7eb8da; }
+.ink .flow-box { background: #181d25; border-color: rgba(240,237,232,0.15); color: #f0ede8; }
+.ink .param-table th { color: rgba(240,237,232,0.5); }
+.ink .param-table td { border-bottom-color: rgba(240,237,232,0.1); }
+.ink .bullet-list li { border-bottom-color: rgba(240,237,232,0.1); }
+.ink .bullet-list li::before { background: #7eb8da; }
+.ink .stat-item { border-top-color: #f0ede8; }
+.ink .stat-label { color: rgba(240,237,232,0.5); }
 </style>
 </head>
 <body>
+
 <div class="deck" id="deck">
-
-<!-- Slide 1: Title -->
-<section class="slide title-slide active" data-screen-label="01 Title">
-  <h1>Robot Tự Hành Tích Hợp SLAM<br>và Theo Dõi Người</h1>
-  <p class="subtitle">Định vị, Lập bản đồ & Điều hướng trên nền tảng ESP32 + ROS 2</p>
-  <p class="meta">Đề tài Nghiên cứu — 2026</p>
-</section>
-
-<!-- Slide 2: Mục lục -->
-<section class="slide" data-screen-label="02 Mục lục">
-  <h2>Nội dung Trình bày</h2>
-  <ul style="font-size:20px; line-height:2.2;">
-    <li><strong>Phần 1</strong> — Giới thiệu đề tài & Mục tiêu</li>
-    <li><strong>Phần 2</strong> — Kiến trúc hệ thống</li>
-    <li><strong>Phần 3</strong> — Chức năng 1: Lập bản đồ (SLAM)</li>
-    <li><strong>Phần 4</strong> — Chức năng 2: Khám phá tự động (Frontier Exploration)</li>
-    <li><strong>Phần 5</strong> — Chức năng 3: Điều hướng (Navigation)</li>
-    <li><strong>Phần 6</strong> — Chức năng 4: Theo dõi người (Person Tracking)</li>
-    <li><strong>Phần 7</strong> — Tổng kết & Hướng phát triển</li>
-  </ul>
-</section>
-
-<!-- Slide 3: Section - Giới thiệu -->
-<section class="slide section-slide" data-screen-label="03 Section Giới thiệu">
-  <p class="section-number">Phần 1</p>
-  <h2>Giới thiệu Đề tài</h2>
-</section>
-
-<!-- Slide 4: Mục tiêu -->
-<section class="slide" data-screen-label="04 Mục tiêu">
-  <h2>Mục tiêu Đề tài</h2>
-  <div class="two-col">
+<!-- Slide 01: Trang bìa -->
+<section class="slide ink" data-screen-label="01 Trang bìa">
+  <div style="flex:1; display:grid; grid-template-columns:1.4fr 1fr; gap:80px; align-items:center;">
     <div>
-      <ul>
-        <li><strong>Phần cứng:</strong> Thiết kế xe 4 bánh, ESP32 trung tâm, LiDAR LDS02RR, encoder, servo pan-tilt, ESP32-CAM</li>
-        <li><strong>SLAM:</strong> Lập bản đồ 2D + điều hướng đến tọa độ đích tránh va chạm</li>
-        <li><strong>Giám sát:</strong> Stream video thời gian thực qua ESP32-CAM + pan-tilt</li>
-        <li><strong>Tích hợp:</strong> Chuyển đổi linh hoạt giữa các chế độ, xử lý real-time</li>
-      </ul>
-      <p style="margin-top:24px;"><span class="badge">ESP32</span> <span class="badge blue">ROS 2 Humble</span> <span class="badge">LiDAR 360°</span></p>
+      <div style="font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:rgba(240,237,232,0.45); margin-bottom:24px;">Học viện Công nghệ Bưu chính Viễn thông</div>
+      <div class="kicker" style="margin-bottom:16px;">INT1461 — Xây dựng các hệ thống nhúng</div>
+      <h1 style="font-size:64px; line-height:1.05; margin-bottom:24px;">
+        Hệ thống Xe Robot<br/>Tự hành SLAM
+      </h1>
+      <p style="font-size:20px; color:rgba(240,237,232,0.55); line-height:1.6; max-width:600px;">
+        Khám phá bản đồ &bull; Điều hướng tự động &bull; Theo dõi người
+      </p>
+      <div style="margin-top:32px; font-size:14px; color:rgba(240,237,232,0.45);">
+        Giảng viên hướng dẫn: <span style="color:rgba(240,237,232,0.8);">Nguyễn Trọng Huân</span>
+      </div>
     </div>
-    <div class="diagram">
-      <svg width="300" height="200" viewBox="0 0 300 200">
-        <rect x="80" y="60" width="140" height="80" rx="12" fill="#e6e5e0" stroke="rgba(38,37,30,0.15)" stroke-width="2"/>
-        <text x="150" y="95" text-anchor="middle" font-family="var(--font-mono)" font-size="12" fill="#26251e">ESP32 Main</text>
-        <text x="150" y="115" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="rgba(38,37,30,0.5)">micro-ROS</text>
-        <circle cx="50" cy="40" r="20" fill="rgba(31,138,101,0.1)" stroke="rgba(31,138,101,0.4)" stroke-width="1.5"/>
-        <text x="50" y="44" text-anchor="middle" font-size="9" font-weight="600" fill="#1f8a65">LiDAR</text>
-        <circle cx="250" cy="40" r="20" fill="rgba(245,78,0,0.08)" stroke="rgba(245,78,0,0.3)" stroke-width="1.5"/>
-        <text x="250" y="44" text-anchor="middle" font-size="9" font-weight="600" fill="#f54e00">CAM</text>
-        <circle cx="50" cy="160" r="20" fill="rgba(31,138,101,0.1)" stroke="rgba(31,138,101,0.4)" stroke-width="1.5"/>
-        <text x="50" y="164" text-anchor="middle" font-size="9" font-weight="600" fill="#1f8a65">ENC</text>
-        <circle cx="250" cy="160" r="20" fill="rgba(207,45,86,0.08)" stroke="rgba(207,45,86,0.25)" stroke-width="1.5"/>
-        <text x="250" y="164" text-anchor="middle" font-size="9" font-weight="600" fill="#cf2d56">Motor</text>
-        <line x1="70" y1="50" x2="85" y2="70" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="230" y1="50" x2="215" y2="70" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="70" y1="150" x2="85" y2="135" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="230" y1="150" x2="215" y2="135" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
+    <div style="border-left:1px solid rgba(240,237,232,0.12); padding-left:48px;">
+      <div style="font-size:12px; letter-spacing:0.1em; text-transform:uppercase; color:rgba(240,237,232,0.4); margin-bottom:20px;">Thành viên nhóm 2</div>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline;"><span style="font-size:20px; color:rgba(240,237,232,0.85);">Nguyễn Ngọc Phú</span><span style="font-size:14px; color:rgba(240,237,232,0.35); font-family:var(--font-body);">N22DCCN159</span></div>
+        <div style="display:flex; justify-content:space-between; align-items:baseline;"><span style="font-size:20px; color:rgba(240,237,232,0.85);">Ngô Tấn Sang</span><span style="font-size:14px; color:rgba(240,237,232,0.35); font-family:var(--font-body);">N22DCCN167</span></div>
+        <div style="display:flex; justify-content:space-between; align-items:baseline;"><span style="font-size:20px; color:rgba(240,237,232,0.85);">Văn Minh Tấn</span><span style="font-size:14px; color:rgba(240,237,232,0.35); font-family:var(--font-body);">N22DCCN175</span></div>
+        <div style="display:flex; justify-content:space-between; align-items:baseline;"><span style="font-size:20px; color:rgba(240,237,232,0.85);">Vũ Tiến Đạt</span><span style="font-size:14px; color:rgba(240,237,232,0.35); font-family:var(--font-body);">N22DCCN120</span></div>
+        <div style="display:flex; justify-content:space-between; align-items:baseline;"><span style="font-size:20px; color:rgba(240,237,232,0.85);">Huỳnh Phát Tài</span><span style="font-size:14px; color:rgba(240,237,232,0.35); font-family:var(--font-body);">N22DCCN171</span></div>
+      </div>
+      <div style="margin-top:32px; font-size:13px; color:rgba(240,237,232,0.3); letter-spacing:0.03em;">TP.HCM, tháng 06 / 2025</div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>SLAM Tracking Car</span>
+    <span style="font-family:var(--font-display); font-style:italic; letter-spacing:0;">Báo cáo đồ án</span>
+  </div>
+</section>
+
+<!-- Slide 02: Tổng quan hệ thống -->
+<section class="slide" data-screen-label="02 Tổng quan">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Tổng quan</span>
+    <span>02 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Kiến trúc hệ thống</div>
+    <h2>Ba chế độ hoạt động</h2>
+    <div class="three-col">
+      <div>
+        <div class="stat-item">
+          <div class="stat-value" style="font-size:36px;">01</div>
+          <h3 style="font-size:22px; margin-top:12px;">Khám phá bản đồ</h3>
+          <p style="font-size:16px; color:var(--muted); line-height:1.6;">SLAM Toolbox xây dựng bản đồ từ LiDAR + explore_lite tự động di chuyển đến vùng chưa khám phá</p>
+        </div>
+      </div>
+      <div>
+        <div class="stat-item">
+          <div class="stat-value" style="font-size:36px;">02</div>
+          <h3 style="font-size:22px; margin-top:12px;">Điều hướng tự động</h3>
+          <p style="font-size:16px; color:var(--muted); line-height:1.6;">Nav2 Stack: AMCL định vị + NavFn lập đường đi + DWB điều khiển bám đường</p>
+        </div>
+      </div>
+      <div>
+        <div class="stat-item">
+          <div class="stat-value" style="font-size:36px;">03</div>
+          <h3 style="font-size:22px; margin-top:12px;">Theo dõi người</h3>
+          <p style="font-size:16px; color:var(--muted); line-height:1.6;">YOLOv8n + InsightFace nhận dạng, Camera-LiDAR fusion định vị, PID 3 tầng điều khiển</p>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:48px;">
+      <svg width="100%" height="120" viewBox="0 0 1600 120">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="none" stroke="#2c4a6e" stroke-width="1.5"/></marker>
+        </defs>
+        <rect x="20" y="30" width="200" height="60" rx="3" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+        <text x="120" y="65" text-anchor="middle" font-size="15" font-family="Inter">LiDAR LDS02RR</text>
+        <line x1="220" y1="60" x2="320" y2="60" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="320" y="30" width="240" height="60" rx="3" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+        <text x="440" y="65" text-anchor="middle" font-size="15" font-family="Inter">SLAM Toolbox</text>
+        <line x1="560" y1="60" x2="660" y2="60" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="660" y="30" width="200" height="60" rx="3" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+        <text x="760" y="65" text-anchor="middle" font-size="15" font-family="Inter">Nav2 Stack</text>
+        <line x1="860" y1="60" x2="960" y2="60" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="960" y="30" width="200" height="60" rx="3" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+        <text x="1060" y="65" text-anchor="middle" font-size="15" font-family="Inter">Motor Driver</text>
+        <rect x="1220" y="30" width="200" height="60" rx="3" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+        <text x="1320" y="65" text-anchor="middle" font-size="15" font-family="Inter">ESP32-CAM</text>
+        <line x1="1320" y1="30" x2="760" y2="30" stroke="#5c5c5c" stroke-width="1" stroke-dasharray="4,4"/>
       </svg>
     </div>
   </div>
-</section>
-
-<!-- Slide 5: Kiến trúc hệ thống -->
-<section class="slide" data-screen-label="05 Kiến trúc">
-  <h2>Kiến trúc Hệ thống 3 Tầng</h2>
-  <div class="diagram" style="flex:1; min-height:0;">
-    <svg width="800" height="340" viewBox="0 0 800 340">
-      <defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="rgba(38,37,30,0.45)"/></marker></defs>
-      <!-- Firmware layer -->
-      <rect x="20" y="230" width="760" height="90" rx="12" fill="rgba(207,45,86,0.04)" stroke="rgba(207,45,86,0.2)" stroke-width="1.5"/>
-      <text x="40" y="255" font-size="12" font-weight="600" fill="#cf2d56" font-family="var(--font-mono)">FIRMWARE (ESP32)</text>
-      <rect x="40" y="270" width="120" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="100" y="293" text-anchor="middle" font-size="11" fill="#26251e">Motor + Encoder</text>
-      <rect x="180" y="270" width="100" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="230" y="293" text-anchor="middle" font-size="11" fill="#26251e">LiDAR LDS02</text>
-      <rect x="300" y="270" width="80" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="340" y="293" text-anchor="middle" font-size="11" fill="#26251e">IMU</text>
-      <rect x="400" y="270" width="100" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="450" y="293" text-anchor="middle" font-size="11" fill="#26251e">Servo Pan-Tilt</text>
-      <rect x="520" y="270" width="120" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="580" y="293" text-anchor="middle" font-size="11" fill="#26251e">ESP32-CAM</text>
-      <rect x="660" y="270" width="100" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="710" y="293" text-anchor="middle" font-size="11" fill="#26251e">Safety WD</text>
-      <!-- Middleware layer -->
-      <rect x="20" y="120" width="760" height="90" rx="12" fill="rgba(245,78,0,0.03)" stroke="rgba(245,78,0,0.2)" stroke-width="1.5"/>
-      <text x="40" y="145" font-size="12" font-weight="600" fill="#f54e00" font-family="var(--font-mono)">MIDDLEWARE (ROS 2 Humble)</text>
-      <rect x="40" y="160" width="130" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="105" y="183" text-anchor="middle" font-size="11" fill="#26251e">SLAM Toolbox</text>
-      <rect x="190" y="160" width="100" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="240" y="183" text-anchor="middle" font-size="11" fill="#26251e">Nav2 Stack</text>
-      <rect x="310" y="160" width="110" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="365" y="183" text-anchor="middle" font-size="11" fill="#26251e">explore_lite</text>
-      <rect x="440" y="160" width="130" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="505" y="183" text-anchor="middle" font-size="11" fill="#26251e">Person Tracker</text>
-      <rect x="590" y="160" width="170" height="36" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="675" y="183" text-anchor="middle" font-size="11" fill="#26251e">Tracking Controller</text>
-      <!-- Web layer -->
-      <rect x="20" y="20" width="760" height="80" rx="12" fill="rgba(31,138,101,0.04)" stroke="rgba(31,138,101,0.2)" stroke-width="1.5"/>
-      <text x="40" y="45" font-size="12" font-weight="600" fill="#1f8a65" font-family="var(--font-mono)">GIAO DIỆN WEB (Next.js + roslibjs)</text>
-      <rect x="40" y="56" width="100" height="32" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="90" y="76" text-anchor="middle" font-size="11" fill="#26251e">Joystick</text>
-      <rect x="155" y="56" width="100" height="32" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="205" y="76" text-anchor="middle" font-size="11" fill="#26251e">Bản đồ 2D</text>
-      <rect x="270" y="56" width="100" height="32" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="320" y="76" text-anchor="middle" font-size="11" fill="#26251e">Camera</text>
-      <rect x="385" y="56" width="120" height="32" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="445" y="76" text-anchor="middle" font-size="11" fill="#26251e">Điều hướng</text>
-      <rect x="520" y="56" width="120" height="32" rx="6" fill="#f2f1ed" stroke="rgba(38,37,30,0.1)" stroke-width="1"/>
-      <text x="580" y="76" text-anchor="middle" font-size="11" fill="#26251e">Person Tracking</text>
-      <!-- Arrows between layers -->
-      <line x1="400" y1="100" x2="400" y2="120" class="flow-arrow"/>
-      <line x1="400" y1="210" x2="400" y2="230" class="flow-arrow"/>
-      <text x="420" y="113" font-size="10" fill="rgba(38,37,30,0.5)" font-family="var(--font-mono)">WebSocket</text>
-      <text x="420" y="223" font-size="10" fill="rgba(38,37,30,0.5)" font-family="var(--font-mono)">micro-ROS UDP</text>
-    </svg>
+  <div class="slide-footer">
+    <span>Nguồn: Tài liệu thiết kế hệ thống</span>
+    <span>Nhóm 2 — 2026</span>
   </div>
 </section>
 
-<!-- Slide 6: Section - SLAM -->
-<section class="slide section-slide" data-screen-label="06 Section SLAM">
-  <p class="section-number">Phần 3</p>
-  <h2>Lập Bản đồ — SLAM Toolbox</h2>
+<!-- Slide 03: Kiến trúc phần cứng -->
+<section class="slide ink" data-screen-label="03 Phần cứng">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Phần cứng</span>
+    <span>03 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Thiết kế phần cứng</div>
+    <h2 style="color:#f0ede8;">Kiến trúc khối hệ thống</h2>
+    <div class="three-col" style="margin-top:24px;">
+      <div>
+        <h3 style="font-size:20px; color:#7eb8da; margin-bottom:16px;">Khối Cảm biến</h3>
+        <ul class="bullet-list">
+          <li>LiDAR LDS02RR — UART 360°</li>
+          <li>MPU6050 IMU — I2C 6-DoF</li>
+          <li>Encoder × 2 — Interrupt</li>
+          <li>ESP32-CAM — HTTP MJPEG</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:20px; color:#7eb8da; margin-bottom:16px;">Khối Xử lý</h3>
+        <ul class="bullet-list">
+          <li>ESP32 Main — micro-ROS node</li>
+          <li>ESP32-CAM — Video streamer</li>
+          <li>Giao tiếp: WiFi UDP → Agent</li>
+        </ul>
+        <h3 style="font-size:20px; color:#7eb8da; margin-top:24px; margin-bottom:16px;">Khối Chấp hành</h3>
+        <ul class="bullet-list">
+          <li>TB6612 — PWM 2 kênh motor</li>
+          <li>2× Servo SG90 — Pan &amp; Tilt</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:20px; color:#7eb8da; margin-bottom:16px;">Khối Nguồn</h3>
+        <ul class="bullet-list">
+          <li>3 cặp pin Li-ion 18650 cách ly</li>
+          <li>Buck LM2596 #1 → MCU + Sensor</li>
+          <li>Buck LM2596 #2 → Servo + LiDAR</li>
+          <li>Pin trực tiếp → Motor Driver</li>
+        </ul>
+        <div style="margin-top:24px; padding:12px 16px; background:#181d25; border:1px solid rgba(240,237,232,0.1); border-radius:3px;">
+          <p style="font-size:14px; color:rgba(240,237,232,0.5);">Tổng chi phí phần cứng</p>
+          <p style="font-size:28px; font-family:var(--font-display); color:#f0ede8;">~1.200.000 VNĐ</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>Thiết kế module hóa — dễ khắc phục sự cố và nâng cấp</span>
+    <span>Nhóm 2 — 2026</span>
+  </div>
 </section>
 
-<!-- Slide 7: SLAM Algorithm -->
-<section class="slide" data-screen-label="07 SLAM Algorithm">
-  <h2>Thuật toán Graph-based SLAM</h2>
-  <div class="two-col">
-    <div>
-      <p><strong>Nguyên lý:</strong> Xây dựng đồ thị tư thế (pose graph), mỗi node là vị trí robot, mỗi cạnh là ràng buộc từ scan matching.</p>
-      <h3 style="margin-top:20px;">Scan Matching — Correlative</h3>
-      <ul>
-        <li>Xây bản đồ xác suất + Gaussian blur</li>
-        <li>Quét thô: duyệt lưới (dx, dy, dθ)</li>
-        <li>Tối ưu tinh: Ceres Solver (Levenberg-Marquardt)</li>
-      </ul>
-      <div class="formula">E(T) = Σᵢ [1 − M(T·pᵢ)]²</div>
-      <p style="font-size:15px;">M(x) = xác suất vật cản tại x. Khi T chính xác → E(T) → 0</p>
+
+<!-- Slide 04: Firmware Modules -->
+<section class="slide" data-screen-label="04 Firmware">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Firmware</span>
+    <span>04 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">PlatformIO + micro-ROS</div>
+    <h2>Firmware module hóa trên ESP32</h2>
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:20px; margin-bottom:16px;">ESP32 Main — micro-ROS Node</h3>
+        <table class="param-table" style="font-size:15px;">
+          <tr><th>Module</th><th>Publish</th><th>Subscribe</th></tr>
+          <tr><td>motors</td><td>—</td><td>/cmd_vel</td></tr>
+          <tr><td>encoders</td><td>/odom</td><td>—</td></tr>
+          <tr><td>imu</td><td>/imu/data_raw</td><td>—</td></tr>
+          <tr><td>lidar</td><td>/scan</td><td>—</td></tr>
+          <tr><td>servos</td><td>/joint_states</td><td>/servo_cmd</td></tr>
+          <tr><td>safety</td><td colspan="2">Watchdog: dừng motor khi mất agent</td></tr>
+          <tr><td>ros_bridge</td><td colspan="2">Interface chung các module</td></tr>
+        </table>
+      </div>
+      <div>
+        <h3 style="font-size:20px; margin-bottom:16px;">ESP32-CAM — Video Streamer</h3>
+        <div style="padding:20px; background:var(--surface); border:1px solid var(--border); border-radius:4px; margin-bottom:24px;">
+          <p style="font-size:16px; line-height:1.7; color:var(--muted);">Phát luồng MJPEG qua HTTP :80<br/>Không phải micro-ROS node<br/>cam_bridge_node kéo dữ liệu về ROS</p>
+        </div>
+        <h3 style="font-size:20px; margin-bottom:16px;">Cơ chế an toàn</h3>
+        <ul class="bullet-list">
+          <li>Watchdog timer — dừng motor khi mất kết nối</li>
+          <li>PID anti-windup trên 2 kênh motor</li>
+          <li>WiFi reconnect tự động</li>
+          <li>Cấu hình .env: WiFi, IP agent, GPIO pins</li>
+        </ul>
+      </div>
     </div>
-    <div class="diagram">
-      <svg width="320" height="280" viewBox="0 0 320 280">
-        <rect x="10" y="10" width="130" height="50" class="flow-box"/>
-        <text x="75" y="30" class="flow-text">LiDAR Scan</text>
-        <text x="75" y="45" class="flow-text-sm">/scan (360°, 5Hz)</text>
-        <line x1="75" y1="60" x2="75" y2="85" class="flow-arrow"/>
-        <rect x="10" y="85" width="130" height="50" class="flow-box-accent"/>
-        <text x="75" y="105" class="flow-text">Scan Matching</text>
-        <text x="75" y="120" class="flow-text-sm">Correlative + Ceres</text>
-        <line x1="75" y1="135" x2="75" y2="160" class="flow-arrow"/>
-        <rect x="10" y="160" width="130" height="50" class="flow-box-green"/>
-        <text x="75" y="180" class="flow-text">Pose Graph</text>
-        <text x="75" y="195" class="flow-text-sm">nodes + constraints</text>
-        <line x1="140" y1="185" x2="180" y2="185" class="flow-arrow"/>
-        <rect x="180" y="160" width="130" height="50" class="flow-box-accent"/>
-        <text x="245" y="180" class="flow-text">Loop Closure</text>
-        <text x="245" y="195" class="flow-text-sm">chain matching</text>
-        <line x1="245" y1="210" x2="245" y2="235" class="flow-arrow"/>
-        <rect x="180" y="235" width="130" height="40" class="flow-box-green"/>
-        <text x="245" y="260" class="flow-text">Occupancy Grid</text>
-        <line x1="75" y1="210" x2="75" y2="255" stroke="rgba(38,37,30,0.2)" stroke-width="1" stroke-dasharray="4"/>
-        <line x1="75" y1="255" x2="180" y2="255" stroke="rgba(38,37,30,0.2)" stroke-width="1" stroke-dasharray="4"/>
+  </div>
+  <div class="slide-footer">
+    <span>Mỗi ngoại vi có file source riêng — giao tiếp qua ros_bridge interface</span>
+    <span>Nhóm 2 — 2026</span>
+  </div>
+</section>
+
+<!-- Slide 05: SLAM — Scan Matching -->
+<section class="slide" data-screen-label="05 Scan Matching">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Khám phá bản đồ</span>
+    <span>05 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">SLAM Toolbox</div>
+    <h2>So khớp quét tương quan</h2>
+    <div class="two-col">
+      <div>
+        <p style="font-size:18px; line-height:1.7; color:var(--muted); margin-bottom:24px;">
+          Ước lượng phép biến đổi giữa 2 bản quét LiDAR liên tiếp bằng phương pháp correlative scan matching kết hợp tối ưu phi tuyến Ceres Solver.
+        </p>
+        <div class="formula">
+          E(T) = Σ<sub>i</sub> [1 − M(T · p<sub>i</sub>)]²
+        </div>
+        <ul class="bullet-list" style="margin-top:24px;">
+          <li><strong>T</strong> — phép biến đổi cần tìm (dx, dy, dθ)</li>
+          <li><strong>p<sub>i</sub></strong> — điểm thứ i trong bản quét hiện tại</li>
+          <li><strong>M(x)</strong> — xác suất tại vị trí x trên bản đồ</li>
+        </ul>
+      </div>
+      <div class="diagram" style="min-height:360px;">
+        <svg width="480" height="320" viewBox="0 0 480 320">
+          <rect x="20" y="20" width="440" height="60" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+          <text x="240" y="55" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Bước 1: Xây dựng bản đồ xác suất</text>
+          <line x1="240" y1="80" x2="240" y2="110" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+          <rect x="20" y="110" width="440" height="60" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+          <text x="240" y="135" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Bước 2: Quét thô (bước 5cm, 2°)</text>
+          <text x="240" y="157" text-anchor="middle" font-size="12" font-family="Inter" fill="#5c5c5c">Tìm T cho tổng xác suất cao nhất</text>
+          <line x1="240" y1="170" x2="240" y2="200" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+          <rect x="20" y="200" width="440" height="60" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+          <text x="240" y="225" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Bước 3: Tối ưu tinh — Levenberg-Marquardt</text>
+          <text x="240" y="247" text-anchor="middle" font-size="12" font-family="Inter" fill="#5c5c5c">Hội tụ đến vị trí chính xác sub-pixel</text>
+          <line x1="240" y1="260" x2="240" y2="290" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+          <rect x="140" y="285" width="200" height="30" rx="3" fill="#2c4a6e"/>
+          <text x="240" y="305" text-anchor="middle" font-size="13" font-family="Inter" fill="#fff" font-weight="500">Phép biến đổi T tối ưu</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>Thuật toán: SPARSE_NORMAL_CHOLESKY + SCHUR_JACOBI</span>
+    <span>Nhóm 2 — 2026</span>
+  </div>
+</section>
+
+<!-- Slide 06: Loop Closure + Occupancy Grid -->
+<section class="slide" data-screen-label="06 Loop Closure">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Khám phá bản đồ</span>
+    <span>06 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Đóng vòng lặp &amp; Bản đồ lưới</div>
+    <h2>Loop Closure + Occupancy Grid</h2>
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:22px;">Phát hiện vòng lặp</h3>
+        <p style="font-size:17px; line-height:1.7; color:var(--muted); margin-bottom:20px;">
+          Khi robot quay lại vùng đã khám phá, thuật toán phát hiện trùng lặp và hiệu chỉnh sai số tích lũy qua tối ưu toàn cục đồ thị tư thế.
+        </p>
+        <table class="param-table">
+          <tr><th>Tham số</th><th>Giá trị</th></tr>
+          <tr><td>Chuỗi scan tối thiểu</td><td>10</td></tr>
+          <tr><td>Ngưỡng matching thô</td><td>≥ 0.35</td></tr>
+          <tr><td>Ngưỡng matching tinh</td><td>≥ 0.45</td></tr>
+          <tr><td>Variance tối đa (thô)</td><td>≤ 3.0</td></tr>
+        </table>
+      </div>
+      <div>
+        <h3 style="font-size:22px;">Bản đồ Occupancy Grid</h3>
+        <div class="diagram" style="min-height:200px; margin-bottom:20px;">
+          <svg width="400" height="180" viewBox="0 0 400 180">
+            <rect x="10" y="10" width="380" height="160" fill="#f5f5f3" stroke="#d4d0c8"/>
+            <rect x="30" y="30" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="50" y="30" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="70" y="30" width="20" height="20" fill="#1a1a1a"/>
+            <rect x="90" y="30" width="20" height="20" fill="#1a1a1a"/>
+            <rect x="110" y="30" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="130" y="30" width="20" height="20" fill="#bbb"/>
+            <rect x="30" y="50" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="50" y="50" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="70" y="50" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="90" y="50" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="110" y="50" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="130" y="50" width="20" height="20" fill="#bbb"/>
+            <rect x="30" y="70" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="50" y="70" width="20" height="20" fill="#2c4a6e"/>
+            <rect x="70" y="70" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="90" y="70" width="20" height="20" fill="#e8e8e6" stroke="#ccc"/>
+            <rect x="110" y="70" width="20" height="20" fill="#bbb"/>
+            <rect x="130" y="70" width="20" height="20" fill="#bbb"/>
+            <text x="200" y="50" font-size="13" font-family="Inter" fill="#5c5c5c">Trắng = Trống (0)</text>
+            <text x="200" y="75" font-size="13" font-family="Inter" fill="#5c5c5c">Đen = Vật cản (100)</text>
+            <text x="200" y="100" font-size="13" font-family="Inter" fill="#5c5c5c">Xám = Chưa biết (−1)</text>
+            <text x="200" y="125" font-size="13" font-family="Inter" fill="#2c4a6e">Xanh = Robot</text>
+            <text x="200" y="155" font-size="12" font-family="Inter" fill="#5c5c5c">Độ phân giải: 0.05m/pixel</text>
+          </svg>
+        </div>
+        <p style="font-size:16px; color:var(--muted); line-height:1.6;">
+          Cập nhật mỗi 5 giây. Mỗi ô chứa xác suất chiếm đóng từ 0 (trống) đến 100 (vật cản).
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>Cấu hình: map_update_interval = 5.0s</span>
+    <span>Nhóm 2 — 2026</span>
+  </div>
+</section>
+
+<!-- Slide 07: Frontier Exploration -->
+<section class="slide" data-screen-label="07 Frontier Exploration">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Khám phá bản đồ</span>
+    <span>07 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">explore_lite</div>
+    <h2>Khám phá dựa trên biên giới</h2>
+    <div class="two-col">
+      <div>
+        <p style="font-size:18px; line-height:1.7; color:var(--muted); margin-bottom:24px;">
+          Robot tự động tìm và di chuyển đến các biên giới — ranh giới giữa vùng đã biết và chưa biết — để khám phá toàn bộ môi trường.
+        </p>
+        <div class="formula">
+          score(f) = α × size(f) − β × cost(f) − γ × turn(f)
+        </div>
+        <table class="param-table" style="margin-top:24px;">
+          <tr><th>Trọng số</th><th>Giá trị</th><th>Ý nghĩa</th></tr>
+          <tr><td>α (gain_scale)</td><td>0.8</td><td>Ưu tiên biên giới lớn</td></tr>
+          <tr><td>β (potential_scale)</td><td>5.0</td><td>Ưu tiên biên giới gần</td></tr>
+          <tr><td>γ (orientation_scale)</td><td>0.0</td><td>Bỏ qua góc quay</td></tr>
+        </table>
+      </div>
+      <div class="diagram" style="min-height:360px;">
+        <svg width="440" height="320" viewBox="0 0 440 320">
+          <rect x="40" y="20" width="360" height="50" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+          <text x="220" y="50" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Quét bản đồ hiện tại</text>
+          <line x1="220" y1="70" x2="220" y2="95" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+          <rect x="40" y="95" width="360" height="50" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+          <text x="220" y="125" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Tìm tất cả biên giới (BFS)</text>
+          <line x1="220" y1="145" x2="220" y2="170" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+          <rect x="40" y="170" width="360" height="50" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+          <text x="220" y="200" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Chấm điểm và chọn biên giới tốt nhất</text>
+          <line x1="220" y1="220" x2="220" y2="245" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+          <rect x="40" y="245" width="360" height="50" rx="3" fill="#2c4a6e"/>
+          <text x="220" y="275" text-anchor="middle" font-size="14" font-family="Inter" fill="#fff" font-weight="500">Gửi mục tiêu đến Nav2</text>
+          <path d="M400,270 C430,270 430,45 400,45" fill="none" stroke="#5c5c5c" stroke-width="1" stroke-dasharray="4,4"/>
+          <text x="435" y="160" font-size="11" font-family="Inter" fill="#5c5c5c" transform="rotate(90,435,160)">Lặp mỗi 3s</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>Điều kiện dừng: không còn biên giới ≥ 0.35m</span>
+    <span>Nhóm 2 — 2026</span>
+  </div>
+</section>
+
+<!-- Slide 08: Phối hợp SLAM + Exploration -->
+<section class="slide ink" data-screen-label="08 Phối hợp SLAM">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Khám phá bản đồ</span>
+    <span>08 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Luồng dữ liệu</div>
+    <h2 style="color:#f0ede8;">Phối hợp SLAM Toolbox &amp; explore_lite</h2>
+    <div class="diagram" style="width:100%; min-height:340px;">
+      <svg width="1400" height="300" viewBox="0 0 1400 300">
+        <defs>
+          <marker id="arr2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="none" stroke="#7eb8da" stroke-width="1.5"/></marker>
+        </defs>
+        <rect x="20" y="100" width="180" height="80" rx="4" fill="#1e2530" stroke="#7eb8da" stroke-width="1.5"/>
+        <text x="110" y="135" text-anchor="middle" font-size="15" fill="#f0ede8" font-family="Inter" font-weight="500">LiDAR</text>
+        <text x="110" y="158" text-anchor="middle" font-size="12" fill="#7eb8da" font-family="Inter">LDS02RR 5Hz</text>
+        <line x1="200" y1="140" x2="290" y2="140" stroke="#7eb8da" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <text x="245" y="130" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">/scan</text>
+
+        <rect x="290" y="100" width="240" height="80" rx="4" fill="#1e2530" stroke="#7eb8da" stroke-width="1.5"/>
+        <text x="410" y="135" text-anchor="middle" font-size="15" fill="#f0ede8" font-family="Inter" font-weight="500">SLAM Toolbox</text>
+        <text x="410" y="158" text-anchor="middle" font-size="12" fill="#7eb8da" font-family="Inter">Xây dựng bản đồ</text>
+        <line x1="530" y1="140" x2="620" y2="140" stroke="#7eb8da" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <text x="575" y="130" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">/map</text>
+
+        <rect x="620" y="100" width="240" height="80" rx="4" fill="#1e2530" stroke="#7eb8da" stroke-width="1.5"/>
+        <text x="740" y="135" text-anchor="middle" font-size="15" fill="#f0ede8" font-family="Inter" font-weight="500">explore_lite</text>
+        <text x="740" y="158" text-anchor="middle" font-size="12" fill="#7eb8da" font-family="Inter">Tìm biên giới</text>
+        <line x1="860" y1="140" x2="950" y2="140" stroke="#7eb8da" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <text x="905" y="130" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">goal</text>
+
+        <rect x="950" y="100" width="200" height="80" rx="4" fill="#1e2530" stroke="#7eb8da" stroke-width="1.5"/>
+        <text x="1050" y="135" text-anchor="middle" font-size="15" fill="#f0ede8" font-family="Inter" font-weight="500">Nav2 Stack</text>
+        <text x="1050" y="158" text-anchor="middle" font-size="12" fill="#7eb8da" font-family="Inter">Lập đường đi</text>
+        <line x1="1150" y1="140" x2="1240" y2="140" stroke="#7eb8da" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <text x="1195" y="130" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">/cmd_vel</text>
+
+        <rect x="1240" y="100" width="140" height="80" rx="4" fill="#1e2530" stroke="#7eb8da" stroke-width="1.5"/>
+        <text x="1310" y="145" text-anchor="middle" font-size="15" fill="#f0ede8" font-family="Inter" font-weight="500">Motor</text>
+
+        <path d="M1310,180 C1310,250 110,250 110,180" fill="none" stroke="#555" stroke-width="1" stroke-dasharray="6,4"/>
+        <text x="700" y="260" text-anchor="middle" font-size="13" fill="#888" font-family="Inter" font-style="italic">Robot di chuyển → LiDAR quét vùng mới → vòng lặp tiếp tục</text>
       </svg>
     </div>
   </div>
-</section>
-
-<!-- Slide 8: Loop Closure -->
-<section class="slide" data-screen-label="08 Loop Closure">
-  <h2>Loop Closure — Đóng Vòng Lặp</h2>
-  <div class="two-col">
-    <div>
-      <p>Khi robot quay lại vùng đã quét, thuật toán phát hiện sự trùng lặp và hiệu chỉnh sai số tích lũy trong toàn bộ đồ thị.</p>
-      <h3>Quy trình 2 giai đoạn:</h3>
-      <ul>
-        <li><strong>Coarse matching:</strong> chain_size ≥ 10, response ≥ 0.35</li>
-        <li><strong>Fine matching:</strong> response ≥ 0.45</li>
-        <li>Tối ưu toàn cục phân bố sai số</li>
-      </ul>
-      <h3 style="margin-top:20px;">Bản đồ Occupancy Grid:</h3>
-      <ul>
-        <li>Độ phân giải: <code>0.05 m/pixel</code></li>
-        <li>Giá trị ô: 0 (trống) → 100 (vật cản), -1 (chưa biết)</li>
-        <li>Cập nhật mỗi 5 giây</li>
-      </ul>
-    </div>
-    <div class="diagram">
-      <svg width="300" height="260" viewBox="0 0 300 260">
-        <!-- Pose graph illustration -->
-        <circle cx="50" cy="50" r="8" fill="#1f8a65" opacity="0.8"/>
-        <circle cx="100" cy="40" r="8" fill="#1f8a65" opacity="0.8"/>
-        <circle cx="150" cy="50" r="8" fill="#1f8a65" opacity="0.8"/>
-        <circle cx="190" cy="80" r="8" fill="#1f8a65" opacity="0.8"/>
-        <circle cx="200" cy="130" r="8" fill="#1f8a65" opacity="0.8"/>
-        <circle cx="180" cy="170" r="8" fill="#1f8a65" opacity="0.8"/>
-        <circle cx="130" cy="190" r="8" fill="#1f8a65" opacity="0.8"/>
-        <circle cx="80" cy="170" r="8" fill="#1f8a65" opacity="0.8"/>
-        <circle cx="55" cy="120" r="8" fill="#1f8a65" opacity="0.8"/>
-        <circle cx="60" cy="70" r="8" fill="#f54e00" opacity="0.8"/>
-        <!-- Edges -->
-        <line x1="50" y1="50" x2="100" y2="40" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="100" y1="40" x2="150" y2="50" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="150" y1="50" x2="190" y2="80" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="190" y1="80" x2="200" y2="130" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="200" y1="130" x2="180" y2="170" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="180" y1="170" x2="130" y2="190" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="130" y1="190" x2="80" y2="170" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="80" y1="170" x2="55" y2="120" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="55" y1="120" x2="60" y2="70" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <!-- Loop closure edge -->
-        <line x1="60" y1="70" x2="50" y2="50" stroke="#cf2d56" stroke-width="2.5" stroke-dasharray="6,3"/>
-        <text x="25" y="42" font-size="10" fill="#cf2d56" font-weight="600">Loop</text>
-        <text x="20" y="54" font-size="10" fill="#cf2d56" font-weight="600">Closure</text>
-        <!-- Legend -->
-        <circle cx="40" cy="230" r="6" fill="#1f8a65"/>
-        <text x="55" y="234" font-size="11" fill="rgba(38,37,30,0.6)">Pose node</text>
-        <line x1="130" y1="230" x2="160" y2="230" stroke="#cf2d56" stroke-width="2" stroke-dasharray="4,2"/>
-        <text x="170" y="234" font-size="11" fill="rgba(38,37,30,0.6)">Loop constraint</text>
-      </svg>
-    </div>
+  <div class="slide-footer">
+    <span>Vòng lặp khám phá tự động hoàn toàn</span>
+    <span>Nhóm 2 — 2026</span>
   </div>
 </section>
 
-<!-- Slide 9: Section Frontier -->
-<section class="slide section-slide" data-screen-label="09 Section Frontier">
-  <p class="section-number">Phần 4</p>
-  <h2>Khám Phá Tự Động — Frontier Exploration</h2>
-</section>
+<!-- Slide 09: Nav2 — Kiến trúc -->
+<section class="slide" data-screen-label="09 Nav2 Kiến trúc">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Điều hướng</span>
+    <span>09 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Nav2 Stack</div>
+    <h2>Kiến trúc phân tầng điều hướng</h2>
+    <div class="diagram" style="width:100%; min-height:380px;">
+      <svg width="1200" height="360" viewBox="0 0 1200 360">
+        <rect x="350" y="10" width="500" height="60" rx="4" fill="#2c4a6e"/>
+        <text x="600" y="45" text-anchor="middle" font-size="16" fill="#fff" font-family="Inter" font-weight="500">BT Navigator (Điều phối tổng thể)</text>
 
-<!-- Slide 10: Frontier Exploration -->
-<section class="slide" data-screen-label="10 Frontier Exploration">
-  <h2>Thuật toán Frontier-based Exploration</h2>
-  <div class="two-col">
-    <div>
-      <p><strong>Frontier</strong> = biên giới giữa vùng đã quét (free) và vùng chưa biết (unknown).</p>
-      <h3>Hàm chọn Frontier tối ưu:</h3>
-      <div class="formula">score(f) = 0.8·size(f) − 5.0·cost(f)</div>
-      <ul style="margin-top:12px;">
-        <li><strong>size(f)</strong> — kích thước frontier (ưu tiên lớn)</li>
-        <li><strong>cost(f)</strong> — chi phí đi đến (ưu tiên gần)</li>
-        <li><code>min_frontier_size: 0.35m</code></li>
-        <li><code>progress_timeout: 45s</code> → blacklist nếu kẹt</li>
-      </ul>
-      <p style="margin-top:16px; font-size:15px;">Dừng khi: không còn frontier ≥ 0.35m → bản đồ hoàn chỉnh.</p>
-    </div>
-    <div class="diagram">
-      <svg width="300" height="260" viewBox="0 0 300 260">
-        <!-- Grid representation -->
-        <rect x="20" y="20" width="260" height="200" fill="#e6e5e0" stroke="rgba(38,37,30,0.15)" stroke-width="1" rx="4"/>
-        <!-- Free area -->
-        <rect x="20" y="80" width="140" height="140" fill="#f2f1ed" rx="0"/>
-        <!-- Unknown area -->
-        <rect x="160" y="20" width="120" height="200" fill="#dddcd7" rx="0"/>
-        <!-- Obstacles -->
-        <rect x="20" y="60" width="140" height="20" fill="#26251e" opacity="0.7" rx="2"/>
-        <rect x="80" y="180" width="80" height="15" fill="#26251e" opacity="0.7" rx="2"/>
-        <!-- Frontier line -->
-        <line x1="160" y1="80" x2="160" y2="220" stroke="#f54e00" stroke-width="3"/>
-        <!-- Robot -->
-        <circle cx="90" cy="140" r="10" fill="#1f8a65" stroke="rgba(31,138,101,0.5)" stroke-width="2"/>
-        <text x="90" y="144" text-anchor="middle" font-size="9" fill="#ffffff" font-weight="700">R</text>
-        <!-- Arrow to frontier -->
-        <line x1="100" y1="140" x2="148" y2="140" stroke="#f54e00" stroke-width="2" stroke-dasharray="4" marker-end="url(#arrowhead)"/>
-        <!-- Labels -->
-        <text x="70" y="115" font-size="11" fill="rgba(38,37,30,0.55)">Free</text>
-        <text x="200" y="115" font-size="11" fill="rgba(38,37,30,0.55)">Unknown</text>
-        <text x="160" y="240" text-anchor="middle" font-size="12" fill="#f54e00" font-weight="600">Frontier</text>
+        <line x1="450" y1="70" x2="250" y2="110" stroke="#2c4a6e" stroke-width="1.5"/>
+        <line x1="600" y1="70" x2="600" y2="110" stroke="#2c4a6e" stroke-width="1.5"/>
+        <line x1="750" y1="70" x2="950" y2="110" stroke="#2c4a6e" stroke-width="1.5"/>
+
+        <rect x="100" y="110" width="300" height="55" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+        <text x="250" y="135" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Planner Server</text>
+        <text x="250" y="153" text-anchor="middle" font-size="12" font-family="Inter" fill="#5c5c5c">Lập đường đi toàn cục (A*)</text>
+
+        <rect x="450" y="110" width="300" height="55" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+        <text x="600" y="135" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Controller Server</text>
+        <text x="600" y="153" text-anchor="middle" font-size="12" font-family="Inter" fill="#5c5c5c">Bám đường cục bộ (DWB)</text>
+
+        <rect x="800" y="110" width="300" height="55" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+        <text x="950" y="135" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Behavior Server</text>
+        <text x="950" y="153" text-anchor="middle" font-size="12" font-family="Inter" fill="#5c5c5c">Phục hồi khi kẹt</text>
+
+        <line x1="250" y1="165" x2="250" y2="210" stroke="#1a1a1a" stroke-width="1"/>
+        <line x1="600" y1="165" x2="600" y2="210" stroke="#1a1a1a" stroke-width="1"/>
+        <line x1="950" y1="165" x2="950" y2="210" stroke="#1a1a1a" stroke-width="1"/>
+
+        <rect x="100" y="210" width="300" height="50" rx="3" fill="#fff" stroke="#d4d0c8" stroke-width="1"/>
+        <text x="250" y="240" text-anchor="middle" font-size="13" font-family="Inter">Global Costmap (Static + Obstacle + Inflation)</text>
+
+        <rect x="450" y="210" width="300" height="50" rx="3" fill="#fff" stroke="#d4d0c8" stroke-width="1"/>
+        <text x="600" y="240" text-anchor="middle" font-size="13" font-family="Inter">Local Costmap (Rolling window)</text>
+
+        <rect x="800" y="210" width="300" height="50" rx="3" fill="#fff" stroke="#d4d0c8" stroke-width="1"/>
+        <text x="950" y="240" text-anchor="middle" font-size="13" font-family="Inter">Spin / Backup / Wait</text>
+
+        <rect x="200" y="300" width="800" height="45" rx="3" fill="none" stroke="#d4d0c8" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="600" y="328" text-anchor="middle" font-size="13" font-family="Inter" fill="#5c5c5c">Thứ tự kích hoạt Lifecycle: map_server → amcl → controller → planner → bt_navigator</text>
       </svg>
     </div>
   </div>
-</section>
-
-<!-- Slide 11: Section Navigation -->
-<section class="slide section-slide" data-screen-label="11 Section Navigation">
-  <p class="section-number">Phần 5</p>
-  <h2>Điều Hướng — Nav2 Stack</h2>
-</section>
-
-<!-- Slide 12: AMCL -->
-<section class="slide" data-screen-label="12 AMCL">
-  <h2>Định vị — AMCL (Particle Filter)</h2>
-  <div class="two-col">
-    <div>
-      <p><strong>Adaptive Monte Carlo Localization</strong> — ước lượng vị trí robot trên bản đồ bằng tập hợp "hạt" (particles).</p>
-      <h3>Chu trình:</h3>
-      <ul>
-        <li><strong>Dự đoán:</strong> Hạt di chuyển theo odometry + nhiễu</li>
-        <li><strong>Cập nhật:</strong> So LiDAR scan với bản đồ → trọng số</li>
-        <li><strong>Lấy mẫu lại:</strong> Loại hạt sai, nhân bản hạt đúng</li>
-        <li><strong>Ước lượng:</strong> Trung bình có trọng số → vị trí</li>
-      </ul>
-      <p style="margin-top:12px;"><code>500–2000 hạt</code> tự điều chỉnh (KL-divergence)</p>
-      <p>Sensor model: <code>likelihood_field</code>, max 180 tia</p>
-    </div>
-    <div class="diagram">
-      <svg width="280" height="250" viewBox="0 0 280 250">
-        <!-- Map outline -->
-        <rect x="20" y="20" width="240" height="180" fill="#f2f1ed" stroke="rgba(38,37,30,0.15)" stroke-width="1" rx="4"/>
-        <!-- Walls -->
-        <line x1="20" y1="20" x2="260" y2="20" stroke="#26251e" stroke-width="3"/>
-        <line x1="20" y1="200" x2="260" y2="200" stroke="#26251e" stroke-width="3"/>
-        <line x1="20" y1="20" x2="20" y2="200" stroke="#26251e" stroke-width="3"/>
-        <line x1="260" y1="20" x2="260" y2="200" stroke="#26251e" stroke-width="3"/>
-        <rect x="100" y="20" width="15" height="80" fill="#26251e"/>
-        <!-- Particles scattered -->
-        <circle cx="140" cy="120" r="2.5" fill="#f54e00" opacity="0.6"/>
-        <circle cx="148" cy="115" r="2.5" fill="#f54e00" opacity="0.6"/>
-        <circle cx="135" cy="125" r="2.5" fill="#f54e00" opacity="0.6"/>
-        <circle cx="152" cy="122" r="2.5" fill="#f54e00" opacity="0.6"/>
-        <circle cx="142" cy="130" r="2.5" fill="#f54e00" opacity="0.6"/>
-        <circle cx="138" cy="118" r="2.5" fill="#f54e00" opacity="0.8"/>
-        <circle cx="145" cy="112" r="2.5" fill="#f54e00" opacity="0.8"/>
-        <circle cx="150" cy="128" r="2.5" fill="#f54e00" opacity="0.6"/>
-        <circle cx="133" cy="122" r="2.5" fill="#f54e00" opacity="0.5"/>
-        <circle cx="155" cy="118" r="2.5" fill="#f54e00" opacity="0.5"/>
-        <circle cx="145" cy="135" r="2.5" fill="#f54e00" opacity="0.4"/>
-        <circle cx="130" cy="115" r="2.5" fill="#f54e00" opacity="0.3"/>
-        <!-- True position -->
-        <circle cx="143" cy="121" r="7" fill="none" stroke="#1f8a65" stroke-width="2"/>
-        <circle cx="143" cy="121" r="2" fill="#1f8a65"/>
-        <!-- Legend -->
-        <circle cx="40" cy="225" r="3" fill="#f54e00"/>
-        <text x="50" y="229" font-size="11" fill="rgba(38,37,30,0.6)">Particles</text>
-        <circle cx="140" cy="225" r="5" fill="none" stroke="#1f8a65" stroke-width="1.5"/>
-        <text x="152" y="229" font-size="11" fill="rgba(38,37,30,0.6)">Estimated pose</text>
-      </svg>
-    </div>
+  <div class="slide-footer">
+    <span>Quản lý bởi MapManagerNode (ROS2 Lifecycle)</span>
+    <span>Nhóm 2 — 2026</span>
   </div>
 </section>
 
-<!-- Slide 13: A* + DWB -->
-<section class="slide" data-screen-label="13 A* + DWB">
-  <h2>Lập Đường đi & Bám Đường</h2>
-  <div class="two-col">
-    <div>
-      <h3>A* — Planner toàn cục</h3>
-      <div class="formula">f(n) = g(n) + h(n)</div>
-      <ul>
-        <li><strong>g(n)</strong> = chi phí thực từ start đến n</li>
-        <li><strong>h(n)</strong> = heuristic (Euclidean) đến goal</li>
-        <li><code>tolerance: 0.5m</code>, <code>allow_unknown: true</code></li>
-      </ul>
-      <h3 style="margin-top:20px;">DWB — Controller cục bộ</h3>
-      <ul>
-        <li>Dynamic Window: tập vận tốc (v, ω) khả thi</li>
-        <li>Mô phỏng 1600 quỹ đạo trong 1.2s</li>
-        <li>Critics: PathAlign(20), GoalDist(16), Obstacle(0.05), RotateToGoal(32)</li>
-        <li><code>max_vel: 0.3 m/s</code>, <code>max_ω: 1.0 rad/s</code></li>
-      </ul>
+<!-- Slide 10: AMCL — Bộ lọc hạt -->
+<section class="slide" data-screen-label="10 AMCL">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Điều hướng</span>
+    <span>10 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Định vị trên bản đồ</div>
+    <h2>AMCL — Bộ lọc hạt thích nghi</h2>
+    <div class="two-col">
+      <div>
+        <p style="font-size:17px; line-height:1.7; color:var(--muted); margin-bottom:20px;">
+          Sử dụng 500–2000 hạt (particles) để ước lượng vị trí robot. Số lượng hạt tự điều chỉnh dựa trên KL-divergence.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div class="flow-box" style="text-align:left; padding:14px 20px;">
+            <strong style="color:var(--accent);">1. Khởi tạo</strong><br/>
+            <span style="font-size:14px; color:var(--muted);">N hạt phân bố Gaussian quanh vị trí ban đầu</span>
+          </div>
+          <div class="flow-box" style="text-align:left; padding:14px 20px;">
+            <strong style="color:var(--accent);">2. Dự đoán</strong><br/>
+            <span style="font-size:14px; color:var(--muted);">Di chuyển hạt theo odometry + nhiễu (α₁–α₅ = 0.2)</span>
+          </div>
+          <div class="flow-box" style="text-align:left; padding:14px 20px;">
+            <strong style="color:var(--accent);">3. Cập nhật</strong><br/>
+            <span style="font-size:14px; color:var(--muted);">Tính trọng số bằng likelihood field model</span>
+          </div>
+          <div class="flow-box" style="text-align:left; padding:14px 20px;">
+            <strong style="color:var(--accent);">4. Lấy mẫu lại</strong><br/>
+            <span style="font-size:14px; color:var(--muted);">Loại hạt trọng số thấp, nhân bản hạt trọng số cao</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="diagram" style="min-height:200px; margin-bottom:24px;">
+          <svg width="420" height="180" viewBox="0 0 420 180">
+            <text x="20" y="20" font-size="12" font-family="Inter" fill="#5c5c5c">t=0: Phân bố đều</text>
+            <circle cx="50" cy="60" r="4" fill="#5c5c5c" opacity="0.5"/><circle cx="90" cy="45" r="4" fill="#5c5c5c" opacity="0.5"/>
+            <circle cx="130" cy="70" r="4" fill="#5c5c5c" opacity="0.5"/><circle cx="170" cy="50" r="4" fill="#5c5c5c" opacity="0.5"/>
+            <circle cx="210" cy="65" r="4" fill="#5c5c5c" opacity="0.5"/><circle cx="250" cy="40" r="4" fill="#5c5c5c" opacity="0.5"/>
+            <circle cx="290" cy="55" r="4" fill="#5c5c5c" opacity="0.5"/><circle cx="330" cy="70" r="4" fill="#5c5c5c" opacity="0.5"/>
+            <circle cx="370" cy="48" r="4" fill="#5c5c5c" opacity="0.5"/>
+
+            <text x="20" y="100" font-size="12" font-family="Inter" fill="#5c5c5c">t=N: Hội tụ</text>
+            <circle cx="190" cy="140" r="5" fill="#2c4a6e"/><circle cx="200" cy="135" r="5" fill="#2c4a6e"/>
+            <circle cx="210" cy="142" r="5" fill="#2c4a6e"/><circle cx="195" cy="148" r="5" fill="#2c4a6e"/>
+            <circle cx="205" cy="145" r="5" fill="#2c4a6e"/><circle cx="215" cy="138" r="5" fill="#2c4a6e"/>
+            <circle cx="185" cy="140" r="5" fill="#2c4a6e"/><circle cx="208" cy="150" r="5" fill="#2c4a6e"/>
+            <circle cx="200" cy="140" r="8" fill="none" stroke="#2c4a6e" stroke-width="2" stroke-dasharray="3,2"/>
+            <text x="240" y="145" font-size="12" font-family="Inter" fill="#2c4a6e">← Vị trí ước lượng</text>
+          </svg>
+        </div>
+        <table class="param-table">
+          <tr><th>Tham số</th><th>Giá trị</th></tr>
+          <tr><td>Số hạt tối thiểu</td><td>500</td></tr>
+          <tr><td>Số hạt tối đa</td><td>2000</td></tr>
+          <tr><td>Mô hình cảm biến</td><td>Likelihood field</td></tr>
+          <tr><td>Số tia laser sử dụng</td><td>180 / 360</td></tr>
+        </table>
+      </div>
     </div>
-    <div class="diagram">
-      <svg width="280" height="270" viewBox="0 0 280 270">
-        <!-- Costmap grid -->
-        <rect x="20" y="20" width="240" height="200" fill="#f2f1ed" stroke="rgba(38,37,30,0.15)" rx="4"/>
-        <!-- Obstacles -->
-        <rect x="100" y="60" width="40" height="60" fill="#26251e" opacity="0.75" rx="4"/>
-        <rect x="180" y="120" width="30" height="50" fill="#26251e" opacity="0.75" rx="4"/>
-        <!-- Inflation zones -->
-        <rect x="88" y="48" width="64" height="84" fill="rgba(207,45,86,0.12)" rx="8"/>
-        <rect x="168" y="108" width="54" height="74" fill="rgba(207,45,86,0.12)" rx="8"/>
-        <!-- Global path -->
-        <path d="M 50 180 Q 80 150, 80 100 Q 80 60, 155 55 Q 230 50, 230 100 Q 230 160, 230 180" fill="none" stroke="#f54e00" stroke-width="2.5" stroke-dasharray="6,3"/>
-        <!-- Start -->
-        <circle cx="50" cy="180" r="8" fill="#1f8a65" stroke="rgba(31,138,101,0.5)" stroke-width="2"/>
-        <text x="50" y="184" text-anchor="middle" font-size="8" fill="#ffffff" font-weight="700">S</text>
-        <!-- Goal -->
-        <circle cx="230" cy="180" r="8" fill="#cf2d56" stroke="rgba(207,45,86,0.5)" stroke-width="2"/>
-        <text x="230" y="184" text-anchor="middle" font-size="8" fill="#ffffff" font-weight="700">G</text>
-        <!-- DWB trajectories -->
-        <path d="M 50 180 Q 55 170, 62 165" fill="none" stroke="#1f8a65" stroke-width="1" opacity="0.4"/>
-        <path d="M 50 180 Q 60 175, 70 168" fill="none" stroke="#1f8a65" stroke-width="1" opacity="0.4"/>
-        <path d="M 50 180 Q 58 168, 68 158" fill="none" stroke="#1f8a65" stroke-width="1.5" opacity="0.8"/>
-        <!-- Legend -->
-        <line x1="30" y1="240" x2="55" y2="240" stroke="#f54e00" stroke-width="2" stroke-dasharray="4,2"/>
-        <text x="62" y="244" font-size="10" fill="rgba(38,37,30,0.6)">A* path</text>
-        <line x1="140" y1="240" x2="165" y2="240" stroke="#1f8a65" stroke-width="1.5"/>
-        <text x="172" y="244" font-size="10" fill="rgba(38,37,30,0.6)">DWB trajectories</text>
-      </svg>
-    </div>
+  </div>
+  <div class="slide-footer">
+    <span>Mô hình: nav2_amcl::DifferentialMotionModel</span>
+    <span>Nhóm 2 — 2026</span>
   </div>
 </section>
 
-<!-- Slide 14: Section Person Tracking -->
-<section class="slide section-slide" data-screen-label="14 Section Tracking">
-  <p class="section-number">Phần 6</p>
-  <h2>Theo Dõi Người — Person Tracking</h2>
-</section>
-
-<!-- Slide 15: Detection & Recognition -->
-<section class="slide" data-screen-label="15 Detection Recognition">
-  <h2>Phát hiện & Nhận dạng Người</h2>
-  <div class="two-col">
-    <div>
-      <h3>Pipeline xử lý:</h3>
-      <ul>
-        <li><strong>YOLOv8n:</strong> Phát hiện thân người (one-stage, conf ≥ 0.5)</li>
-        <li><strong>InsightFace buffalo_l:</strong> Trích xuất embedding khuôn mặt 512-d</li>
-        <li><strong>Cosine Similarity:</strong> So khớp với database đã đăng ký</li>
-      </ul>
-      <div class="formula">cos(θ) = A · B &nbsp;&nbsp; (|A|=|B|=1)</div>
-      <p>Ngưỡng nhận dạng: <code>≥ 0.6</code></p>
-      <h3 style="margin-top:16px;">Sensor Fusion — Camera + LiDAR:</h3>
-      <ul>
-        <li>Camera → bearing (góc) qua pinhole model + TF2</li>
-        <li>LiDAR → leg clustering (0.05–0.30m) + pair (15–35cm)</li>
-        <li>Ghép bearing ↔ leg-pair (tolerance: 0.10 rad)</li>
-      </ul>
+<!-- Slide 11: A* + DWB -->
+<section class="slide" data-screen-label="11 NavFn DWB">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Điều hướng</span>
+    <span>11 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Lập đường đi &amp; Bám đường</div>
+    <h2>NavFn (A*) + Dynamic Window (DWB)</h2>
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:20px;">Thuật toán A*</h3>
+        <div class="formula">f(n) = g(n) + h(n)</div>
+        <ul class="bullet-list" style="margin-top:16px; margin-bottom:32px;">
+          <li>g(n) — chi phí thực từ start đến n</li>
+          <li>h(n) — heuristic Euclidean đến goal</li>
+          <li>Dung sai goal: 0.5m</li>
+        </ul>
+        <h3 style="font-size:20px;">Costmap Inflation</h3>
+        <div class="formula" style="font-size:20px;">
+          cost(d) = 253 × e<sup>−10 × (d − 0.12)</sup>
+        </div>
+        <p style="font-size:15px; color:var(--muted); margin-top:12px;">
+          Vùng đệm 45cm quanh vật cản, bán kính robot 12cm
+        </p>
+      </div>
+      <div>
+        <h3 style="font-size:20px;">Dynamic Window Approach</h3>
+        <p style="font-size:16px; color:var(--muted); margin-bottom:20px;">
+          Mô phỏng 1600 quỹ đạo (40×40 mẫu) trong 1.2 giây, chấm điểm bằng 7 critics.
+        </p>
+        <table class="param-table">
+          <tr><th>Critic</th><th>Scale</th></tr>
+          <tr><td>RotateToGoal</td><td>32.0</td></tr>
+          <tr><td>PathAlign</td><td>20.0</td></tr>
+          <tr><td>PathDist</td><td>20.0</td></tr>
+          <tr><td>GoalAlign</td><td>16.0</td></tr>
+          <tr><td>GoalDist</td><td>16.0</td></tr>
+          <tr><td>BaseObstacle</td><td>0.05</td></tr>
+        </table>
+        <div style="margin-top:20px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:3px;">
+          <span style="font-size:14px; color:var(--muted);">Tốc độ tối đa:</span>
+          <span style="font-size:16px; font-weight:500;"> 0.3 m/s tịnh tiến, 1.0 rad/s quay</span>
+        </div>
+      </div>
     </div>
-    <div class="diagram">
-      <svg width="280" height="280" viewBox="0 0 280 280">
-        <rect x="10" y="10" width="120" height="40" class="flow-box"/>
-        <text x="70" y="35" class="flow-text">ESP32-CAM</text>
-        <line x1="70" y1="50" x2="70" y2="70" class="flow-arrow"/>
-        <rect x="10" y="70" width="120" height="40" class="flow-box-accent"/>
-        <text x="70" y="95" class="flow-text">YOLOv8n</text>
-        <line x1="70" y1="110" x2="70" y2="130" class="flow-arrow"/>
-        <rect x="10" y="130" width="120" height="40" class="flow-box-green"/>
-        <text x="70" y="150" class="flow-text">InsightFace</text>
-        <text x="70" y="163" class="flow-text-sm">embedding 512-d</text>
-        <line x1="70" y1="170" x2="70" y2="190" class="flow-arrow"/>
-        <rect x="10" y="190" width="120" height="40" class="flow-box-accent"/>
-        <text x="70" y="215" class="flow-text">Match DB</text>
-        <!-- LiDAR branch -->
-        <rect x="160" y="10" width="110" height="40" class="flow-box"/>
-        <text x="215" y="35" class="flow-text">LiDAR /scan</text>
-        <line x1="215" y1="50" x2="215" y2="70" class="flow-arrow"/>
-        <rect x="160" y="70" width="110" height="40" class="flow-box-accent"/>
-        <text x="215" y="90" class="flow-text">Leg Cluster</text>
-        <text x="215" y="103" class="flow-text-sm">pair 15-35cm</text>
-        <line x1="215" y1="110" x2="215" y2="130" class="flow-arrow"/>
-        <rect x="160" y="130" width="110" height="40" class="flow-box-green"/>
-        <text x="215" y="155" class="flow-text">Bearing Match</text>
-        <!-- Merge -->
-        <line x1="130" y1="210" x2="140" y2="210" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="140" y1="150" x2="140" y2="210" stroke="rgba(38,37,30,0.25)" stroke-width="1.5"/>
-        <line x1="140" y1="150" x2="160" y2="150" stroke="rgba(38,37,30,0.25)" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <!-- Output -->
-        <line x1="140" y1="210" x2="140" y2="255" class="flow-arrow"/>
-        <rect x="60" y="245" width="160" height="30" rx="6" fill="rgba(31,138,101,0.08)" stroke="rgba(31,138,101,0.3)" stroke-width="1.5"/>
-        <text x="140" y="265" text-anchor="middle" font-size="11" fill="#1f8a65" font-weight="600">TrackedPerson (range, bearing, ID)</text>
-      </svg>
-    </div>
+  </div>
+  <div class="slide-footer">
+    <span>Goal tolerance: xy=15cm, yaw=0.25rad</span>
+    <span>Nhóm 2 — 2026</span>
   </div>
 </section>
 
-<!-- Slide 16: PID Controller -->
-<section class="slide" data-screen-label="16 PID Controller">
-  <h2>Điều khiển Bám Theo — PID 3 Tầng</h2>
-  <div class="two-col">
-    <div>
-      <div class="formula">u(t) = Kp·e + Ki·∫e·dt + Kd·de/dt</div>
-      <table style="margin-top:20px;">
-        <thead><tr><th>Tầng</th><th>Mục đích</th><th>Tần số</th></tr></thead>
-        <tbody>
-          <tr><td>Servo PID</td><td>Giữ target giữa khung hình</td><td>50 Hz</td></tr>
-          <tr><td>Wheel Yaw</td><td>Quay body khi servo > 30°</td><td>10 Hz</td></tr>
-          <tr><td>Linear PID</td><td>Giữ khoảng cách 1.0–1.5m</td><td>10 Hz</td></tr>
-        </tbody>
-      </table>
-      <h3 style="margin-top:20px;">FSM Tìm kiếm khi mất target:</h3>
-      <ul>
-        <li>SEARCH_CONTINUE (0.5s) → tiếp tục hướng cũ</li>
-        <li>SEARCH_SCAN (2.0s) → quét servo trái-phải</li>
-        <li>SEARCH_ROTATE (5.0s) → quay body 360°</li>
-        <li>IDLE → dừng hoàn toàn</li>
-      </ul>
-    </div>
-    <div class="diagram">
-      <svg width="280" height="270" viewBox="0 0 280 270">
-        <!-- FSM diagram -->
-        <rect x="90" y="10" width="100" height="35" rx="8" fill="rgba(31,138,101,0.08)" stroke="rgba(31,138,101,0.3)" stroke-width="1.5"/>
-        <text x="140" y="32" text-anchor="middle" font-size="12" fill="#1f8a65" font-weight="600">TRACKING</text>
-        <line x1="140" y1="45" x2="140" y2="70" class="flow-arrow"/>
-        <text x="175" y="60" font-size="9" fill="rgba(38,37,30,0.5)">lost > 0.5s</text>
-        <rect x="70" y="70" width="140" height="35" rx="8" fill="rgba(245,78,0,0.06)" stroke="rgba(245,78,0,0.25)" stroke-width="1.5"/>
-        <text x="140" y="92" text-anchor="middle" font-size="11" fill="#f54e00" font-weight="500">SEARCH_CONTINUE</text>
-        <line x1="140" y1="105" x2="140" y2="130" class="flow-arrow"/>
-        <text x="175" y="120" font-size="9" fill="rgba(38,37,30,0.5)">0.5s timeout</text>
-        <rect x="70" y="130" width="140" height="35" rx="8" fill="rgba(245,78,0,0.06)" stroke="rgba(245,78,0,0.25)" stroke-width="1.5"/>
-        <text x="140" y="152" text-anchor="middle" font-size="11" fill="#f54e00" font-weight="500">SEARCH_SCAN</text>
-        <line x1="140" y1="165" x2="140" y2="190" class="flow-arrow"/>
-        <text x="175" y="180" font-size="9" fill="rgba(38,37,30,0.5)">2.0s timeout</text>
-        <rect x="70" y="190" width="140" height="35" rx="8" fill="rgba(245,78,0,0.06)" stroke="rgba(245,78,0,0.25)" stroke-width="1.5"/>
-        <text x="140" y="212" text-anchor="middle" font-size="11" fill="#f54e00" font-weight="500">SEARCH_ROTATE</text>
-        <line x1="140" y1="225" x2="140" y2="245" class="flow-arrow"/>
-        <rect x="100" y="245" width="80" height="25" rx="6" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-        <text x="140" y="262" text-anchor="middle" font-size="11" fill="var(--muted)" font-weight="500">IDLE</text>
-        <!-- Return arrow -->
-        <path d="M 70 27 Q 30 27, 30 150 Q 30 200, 70 200" fill="none" stroke="#1f8a65" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrowhead)"/>
-        <text x="15" y="115" font-size="9" fill="#1f8a65" transform="rotate(-90, 15, 115)">target found</text>
+<!-- Slide 12: Theo dõi người — Kiến trúc -->
+<section class="slide ink" data-screen-label="12 Tracking Kiến trúc">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Theo dõi người</span>
+    <span>12 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Person Tracking</div>
+    <h2 style="color:#f0ede8;">Kiến trúc 3 tầng theo dõi người</h2>
+    <div class="diagram" style="width:100%; min-height:340px;">
+      <svg width="1300" height="300" viewBox="0 0 1300 300">
+        <text x="200" y="25" text-anchor="middle" font-size="13" fill="#7eb8da" font-family="Inter" font-weight="500">TẦNG 1: NHẬN DẠNG</text>
+        <text x="650" y="25" text-anchor="middle" font-size="13" fill="#7eb8da" font-family="Inter" font-weight="500">TẦNG 2: ĐỊNH VỊ</text>
+        <text x="1080" y="25" text-anchor="middle" font-size="13" fill="#7eb8da" font-family="Inter" font-weight="500">TẦNG 3: ĐIỀU KHIỂN</text>
+
+        <rect x="40" y="50" width="160" height="55" rx="3" fill="#1e2530" stroke="#7eb8da" stroke-width="1"/>
+        <text x="120" y="75" text-anchor="middle" font-size="13" fill="#f0ede8" font-family="Inter">ESP32-CAM</text>
+        <text x="120" y="93" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">MJPEG stream</text>
+
+        <rect x="40" y="130" width="160" height="55" rx="3" fill="#1e2530" stroke="#7eb8da" stroke-width="1"/>
+        <text x="120" y="155" text-anchor="middle" font-size="13" fill="#f0ede8" font-family="Inter">LiDAR LDS02RR</text>
+        <text x="120" y="173" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">360° scan</text>
+
+        <line x1="200" y1="77" x2="270" y2="100" stroke="#7eb8da" stroke-width="1" marker-end="url(#arr2)"/>
+        <line x1="200" y1="157" x2="270" y2="140" stroke="#7eb8da" stroke-width="1" marker-end="url(#arr2)"/>
+
+        <rect x="270" y="70" width="200" height="100" rx="3" fill="#1e2530" stroke="#7eb8da" stroke-width="1.5"/>
+        <text x="370" y="100" text-anchor="middle" font-size="14" fill="#f0ede8" font-family="Inter" font-weight="500">Person Tracker</text>
+        <text x="370" y="120" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">YOLOv8n (body)</text>
+        <text x="370" y="138" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">InsightFace (face)</text>
+        <text x="370" y="156" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">Leg Clustering</text>
+
+        <line x1="470" y1="120" x2="550" y2="120" stroke="#7eb8da" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+        <rect x="550" y="70" width="200" height="100" rx="3" fill="#1e2530" stroke="#7eb8da" stroke-width="1.5"/>
+        <text x="650" y="100" text-anchor="middle" font-size="14" fill="#f0ede8" font-family="Inter" font-weight="500">Sensor Fusion</text>
+        <text x="650" y="120" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">Camera bearing</text>
+        <text x="650" y="138" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">+ LiDAR range</text>
+        <text x="650" y="156" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">→ (range, bearing)</text>
+
+        <line x1="750" y1="120" x2="830" y2="120" stroke="#7eb8da" stroke-width="1.5" marker-end="url(#arr2)"/>
+
+        <rect x="830" y="50" width="220" height="130" rx="3" fill="#1e2530" stroke="#7eb8da" stroke-width="1.5"/>
+        <text x="940" y="80" text-anchor="middle" font-size="14" fill="#f0ede8" font-family="Inter" font-weight="500">Tracking Controller</text>
+        <text x="940" y="105" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">Servo PID (50 Hz)</text>
+        <text x="940" y="123" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">Wheel Yaw PID (10 Hz)</text>
+        <text x="940" y="141" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">Linear PID (10 Hz)</text>
+        <text x="940" y="163" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">Safety Arc Check</text>
+
+        <line x1="1050" y1="100" x2="1130" y2="100" stroke="#7eb8da" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <text x="1180" y="95" font-size="12" fill="#f0ede8" font-family="Inter">/servo_cmd</text>
+        <line x1="1050" y1="140" x2="1130" y2="140" stroke="#7eb8da" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <text x="1180" y="135" font-size="12" fill="#f0ede8" font-family="Inter">/cmd_vel</text>
+
+        <rect x="270" y="220" width="200" height="55" rx="3" fill="#1e2530" stroke="#555" stroke-width="1"/>
+        <text x="370" y="245" text-anchor="middle" font-size="13" fill="#f0ede8" font-family="Inter">Enrollment Node</text>
+        <text x="370" y="263" text-anchor="middle" font-size="11" fill="#888" font-family="Inter">SQLite database</text>
+        <line x1="370" y1="170" x2="370" y2="220" stroke="#555" stroke-width="1" stroke-dasharray="4,3"/>
       </svg>
     </div>
   </div>
+  <div class="slide-footer">
+    <span>3 tầng: Nhận dạng → Định vị → Điều khiển</span>
+    <span>Nhóm 2 — 2026</span>
+  </div>
 </section>
 
-<!-- Slide 17: Tổng kết -->
-<section class="slide" data-screen-label="17 Tổng kết">
-  <h2>Tổng kết Giải thuật</h2>
-  <table>
-    <thead>
-      <tr><th>Chức năng</th><th>Thuật toán chính</th><th>Thư viện</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Xây dựng bản đồ</td><td>Graph-based SLAM + Ceres Solver</td><td>SLAM Toolbox</td></tr>
+<!-- Slide 13: YOLO + InsightFace -->
+<section class="slide" data-screen-label="13 Nhận dạng">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Theo dõi người</span>
+    <span>13 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Phát hiện &amp; Nhận dạng</div>
+    <h2>YOLOv8n + InsightFace</h2>
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:20px;">Phát hiện cơ thể — YOLOv8n</h3>
+        <ul class="bullet-list" style="margin-bottom:32px;">
+          <li>Mô hình one-stage, chỉ detect class "person"</li>
+          <li>Ngưỡng confidence ≥ 0.5</li>
+          <li>Bounding box chuẩn hóa [0, 1]</li>
+          <li>Theo dõi liên tục qua IoU ≥ 0.3</li>
+        </ul>
+        <h3 style="font-size:20px;">Nhận dạng khuôn mặt — InsightFace</h3>
+        <ul class="bullet-list">
+          <li>Mô hình buffalo_l, vector 512 chiều</li>
+          <li>Chuẩn hóa L2 + cosine similarity</li>
+          <li>Ngưỡng nhận dạng: ≥ 0.6</li>
+          <li>Confidence decay: 0.1/giây khi mất mặt</li>
+        </ul>
+      </div>
+      <div class="diagram" style="min-height:380px; flex-direction:column; gap:24px; align-items:stretch;">
+        <svg width="420" height="350" viewBox="0 0 420 350">
+          <rect x="20" y="10" width="380" height="50" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+          <text x="210" y="40" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Ảnh từ ESP32-CAM</text>
+          <line x1="210" y1="60" x2="210" y2="85" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+
+          <rect x="20" y="85" width="380" height="50" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+          <text x="210" y="115" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">YOLOv8n → Bounding box người</text>
+          <line x1="210" y1="135" x2="210" y2="160" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+
+          <rect x="20" y="160" width="380" height="50" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+          <text x="210" y="190" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Cắt vùng body → InsightFace detect</text>
+          <line x1="210" y1="210" x2="210" y2="235" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+
+          <rect x="20" y="235" width="380" height="50" rx="3" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+          <text x="210" y="265" text-anchor="middle" font-size="14" font-family="Inter" font-weight="500">Trích xuất embedding 512-d</text>
+          <line x1="210" y1="285" x2="210" y2="310" stroke="#2c4a6e" stroke-width="1.5" marker-end="url(#arr)"/>
+
+          <rect x="80" y="310" width="260" height="35" rx="3" fill="#2c4a6e"/>
+          <text x="210" y="333" text-anchor="middle" font-size="13" font-family="Inter" fill="#fff" font-weight="500">So khớp cosine ≥ 0.6 → Xác nhận</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>Track bị xóa sau 1 giây không phát hiện</span>
+    <span>Nhóm 2 — 2026</span>
+  </div>
+</section>
+
+<!-- Slide 14: Sensor Fusion -->
+<section class="slide" data-screen-label="14 Sensor Fusion">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Theo dõi người</span>
+    <span>14 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Kết hợp cảm biến</div>
+    <h2>Camera-LiDAR Bearing Fusion</h2>
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:20px;">Vấn đề</h3>
+        <p style="font-size:16px; line-height:1.7; color:var(--muted); margin-bottom:24px;">
+          Camera cho biết <strong>hướng</strong> nhưng không biết khoảng cách. LiDAR biết khoảng cách nhưng không phân biệt người. Cần kết hợp 2 nguồn.
+        </p>
+        <h3 style="font-size:20px;">Tính bearing từ camera</h3>
+        <div class="formula" style="font-size:20px;">
+          θ<sub>cam</sub> = arctan((u − c<sub>x</sub>) / f<sub>x</sub>)
+        </div>
+        <p style="font-size:15px; color:var(--muted); margin:12px 0 24px;">
+          Chuyển đổi frame camera → laser qua TF2
+        </p>
+        <h3 style="font-size:20px;">Ghép cặp chân từ LiDAR</h3>
+        <table class="param-table">
+          <tr><th>Tham số</th><th>Giá trị</th></tr>
+          <tr><td>Chiều rộng chân</td><td>5–30 cm</td></tr>
+          <tr><td>Khoảng cách 2 chân</td><td>15–35 cm</td></tr>
+          <tr><td>Bearing tolerance</td><td>0.10 rad (~5.7°)</td></tr>
+        </table>
+      </div>
+      <div class="diagram" style="min-height:380px;">
+        <svg width="440" height="350" viewBox="0 0 440 350">
+          <circle cx="220" cy="280" r="20" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+          <text x="220" y="285" text-anchor="middle" font-size="11" font-family="Inter" font-weight="500">Robot</text>
+
+          <line x1="220" y1="260" x2="220" y2="50" stroke="#d4d0c8" stroke-width="1" stroke-dasharray="4,3"/>
+          <line x1="220" y1="260" x2="140" y2="60" stroke="#2c4a6e" stroke-width="1.5"/>
+          <text x="160" y="150" font-size="12" font-family="Inter" fill="#2c4a6e" transform="rotate(-25,160,150)">bearing camera</text>
+
+          <circle cx="140" cy="60" r="6" fill="#2c4a6e"/>
+          <circle cx="155" cy="65" r="6" fill="#2c4a6e"/>
+          <text x="100" y="40" font-size="12" font-family="Inter" fill="#5c5c5c">Leg pair</text>
+          <line x1="140" y1="60" x2="155" y2="65" stroke="#2c4a6e" stroke-width="2"/>
+
+          <path d="M200,270 A30,30 0 0,1 220,260" fill="none" stroke="#2c4a6e" stroke-width="1.5"/>
+          <text x="185" y="255" font-size="11" font-family="Inter" fill="#2c4a6e">θ</text>
+
+          <line x1="220" y1="280" x2="140" y2="62" stroke="#888" stroke-width="1" stroke-dasharray="2,2"/>
+          <text x="300" y="170" font-size="12" font-family="Inter" fill="#5c5c5c">range (LiDAR)</text>
+          <line x1="225" y1="275" x2="295" y2="175" stroke="#888" stroke-width="1" marker-end="url(#arr)"/>
+
+          <rect x="240" y="30" width="180" height="80" rx="3" fill="#f0f0ee" stroke="#d4d0c8"/>
+          <text x="330" y="55" text-anchor="middle" font-size="13" font-family="Inter" font-weight="500">Kết quả fusion</text>
+          <text x="330" y="78" text-anchor="middle" font-size="12" font-family="Inter" fill="#5c5c5c">bearing: từ camera</text>
+          <text x="330" y="98" text-anchor="middle" font-size="12" font-family="Inter" fill="#5c5c5c">range: từ leg pair</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>Nếu Δθ > 0.10 rad → không ghép, trả range = NaN</span>
+    <span>Nhóm 2 — 2026</span>
+  </div>
+</section>
+
+<!-- Slide 15: PID 3 tầng + FSM -->
+<section class="slide" data-screen-label="15 PID FSM">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Theo dõi người</span>
+    <span>15 / 16</span>
+  </div>
+  <div class="slide-body">
+    <div class="kicker">Điều khiển</div>
+    <h2>PID 3 tầng + Máy trạng thái</h2>
+    <div class="two-col">
+      <div>
+        <div class="formula" style="margin-bottom:24px;">
+          u(t) = K<sub>p</sub>·e(t) + K<sub>i</sub>·∫e(τ)dτ + K<sub>d</sub>·de/dt
+        </div>
+        <table class="param-table">
+          <tr><th>Tầng PID</th><th>Tần số</th><th>K<sub>p</sub></th><th>Mục đích</th></tr>
+          <tr><td>Servo</td><td>50 Hz</td><td>2.0</td><td>Giữ target giữa khung</td></tr>
+          <tr><td>Wheel Yaw</td><td>10 Hz</td><td>0.5</td><td>Quay body khi servo &gt; 30°</td></tr>
+          <tr><td>Linear</td><td>10 Hz</td><td>0.3</td><td>Giữ khoảng cách 1.0–1.5m</td></tr>
+        </table>
+        <div style="margin-top:24px; padding:16px; background:var(--surface); border:1px solid var(--border); border-radius:3px;">
+          <p style="font-size:14px; color:var(--muted); margin-bottom:8px;">An toàn:</p>
+          <p style="font-size:16px;">Cung quét ±20° phía trước, dừng nếu vật cản &lt; 30cm</p>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:20px; margin-bottom:16px;">Máy trạng thái tìm kiếm</h3>
+        <div class="diagram" style="min-height:300px;">
+          <svg width="400" height="290" viewBox="0 0 400 290">
+            <rect x="130" y="5" width="140" height="40" rx="20" fill="#2c4a6e"/>
+            <text x="200" y="30" text-anchor="middle" font-size="13" fill="#fff" font-family="Inter" font-weight="500">TRACKING</text>
+
+            <line x1="200" y1="45" x2="200" y2="70" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+            <text x="260" y="62" font-size="10" font-family="Inter" fill="#5c5c5c">mất &gt; 0.5s</text>
+
+            <rect x="100" y="70" width="200" height="40" rx="20" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+            <text x="200" y="95" text-anchor="middle" font-size="12" font-family="Inter">SEARCH_CONTINUE</text>
+            <text x="340" y="95" font-size="10" font-family="Inter" fill="#5c5c5c">0.5s</text>
+
+            <line x1="200" y1="110" x2="200" y2="135" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+
+            <rect x="100" y="135" width="200" height="40" rx="20" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+            <text x="200" y="160" text-anchor="middle" font-size="12" font-family="Inter">SEARCH_SCAN</text>
+            <text x="340" y="160" font-size="10" font-family="Inter" fill="#5c5c5c">2.0s</text>
+
+            <line x1="200" y1="175" x2="200" y2="200" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+
+            <rect x="100" y="200" width="200" height="40" rx="20" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+            <text x="200" y="225" text-anchor="middle" font-size="12" font-family="Inter">SEARCH_ROTATE</text>
+            <text x="340" y="225" font-size="10" font-family="Inter" fill="#5c5c5c">5.0s</text>
+
+            <line x1="200" y1="240" x2="200" y2="265" stroke="#1a1a1a" stroke-width="1.5" marker-end="url(#arr)"/>
+
+            <rect x="150" y="260" width="100" height="30" rx="15" fill="#f0f0ee" stroke="#1a1a1a" stroke-width="1"/>
+            <text x="200" y="280" text-anchor="middle" font-size="12" font-family="Inter">IDLE</text>
+
+            <path d="M100,90 C30,90 30,25 130,25" fill="none" stroke="#2c4a6e" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr)"/>
+            <text x="40" y="55" font-size="9" font-family="Inter" fill="#2c4a6e">target lại</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>Target xuất hiện lại → quay về TRACKING ngay lập tức</span>
+    <span>Nhóm 2 — 2026</span>
+  </div>
+</section>
+
+<!-- Slide 16: Tổng kết -->
+<section class="slide ink" data-screen-label="16 Tổng kết">
+  <div class="slide-header">
+    <span>SLAM Tracking Car</span>
+    <span>Tổng kết</span>
+    <span>16 / 16</span>
+  </div>
+  <div class="slide-body" style="justify-content:center;">
+    <div class="kicker">Tổng kết</div>
+    <h2 style="color:#f0ede8; margin-bottom:48px;">Bảng tổng hợp giải thuật</h2>
+    <table class="param-table" style="font-size:17px;">
+      <tr><th style="width:30%;">Chức năng</th><th style="width:35%;">Thuật toán chính</th><th style="width:35%;">Thư viện</th></tr>
+      <tr><td>Xây dựng bản đồ</td><td>Graph-based SLAM, Ceres Solver</td><td>SLAM Toolbox</td></tr>
       <tr><td>Khám phá tự động</td><td>Frontier-based Exploration</td><td>explore_lite</td></tr>
       <tr><td>Định vị</td><td>Adaptive Monte Carlo Localization</td><td>Nav2 AMCL</td></tr>
       <tr><td>Lập đường đi</td><td>A* trên costmap</td><td>Nav2 NavFn</td></tr>
-      <tr><td>Bám đường</td><td>Dynamic Window Approach (DWB)</td><td>Nav2 Controller</td></tr>
-      <tr><td>Phát hiện người</td><td>YOLOv8n (CNN one-stage)</td><td>Ultralytics</td></tr>
-      <tr><td>Nhận dạng mặt</td><td>ArcFace embedding + Cosine similarity</td><td>InsightFace</td></tr>
-      <tr><td>Định vị người</td><td>Camera-LiDAR bearing fusion + Leg clustering</td><td>Custom</td></tr>
-      <tr><td>Điều khiển bám</td><td>PID 3 tầng + FSM tìm kiếm</td><td>Custom</td></tr>
-    </tbody>
-  </table>
-</section>
-
-<!-- Slide 18: Kết luận -->
-<section class="slide" data-screen-label="18 Kết luận">
-  <h2>Kết luận & Hướng Phát triển</h2>
-  <div class="two-col">
-    <div>
-      <h3>Kết quả đạt được:</h3>
-      <ul>
-        <li>Robot hoạt động ổn định với SLAM + Navigation + Person Tracking</li>
-        <li>Kiến trúc 3 tầng: Firmware (ESP32) → Middleware (ROS 2) → Web Dashboard</li>
-        <li>Giao diện web real-time, điều khiển từ xa qua trình duyệt</li>
-        <li>Chi phí phần cứng thấp, phù hợp nền tảng nhúng</li>
-      </ul>
-    </div>
-    <div>
-      <h3>Hướng phát triển:</h3>
-      <ul>
-        <li>Tích hợp SLAM 3D (RGB-D camera)</li>
-        <li>Cải thiện nhận dạng đa người trong môi trường đông đúc</li>
-        <li>Thêm chế độ tuần tra tự động (patrol) theo lịch trình</li>
-        <li>Tối ưu firmware trên ESP32-S3 cho hiệu năng cao hơn</li>
-        <li>Ứng dụng: robot giám sát, robot phục vụ, hỗ trợ người già</li>
-      </ul>
-    </div>
+      <tr><td>Bám đường</td><td>Dynamic Window Approach</td><td>Nav2 DWB</td></tr>
+      <tr><td>Phát hiện người</td><td>CNN one-stage detection</td><td>YOLOv8n</td></tr>
+      <tr><td>Nhận dạng mặt</td><td>ArcFace + Cosine similarity</td><td>InsightFace</td></tr>
+      <tr><td>Định vị người</td><td>Bearing fusion + Leg clustering</td><td>Custom</td></tr>
+      <tr><td>Điều khiển</td><td>PID 3 tầng + FSM</td><td>Custom</td></tr>
+    </table>
+  </div>
+  <div class="slide-footer">
+    <span>Nhóm 2 — 2026</span>
+    <span style="font-family:var(--font-display); font-style:italic; letter-spacing:0;">Cảm ơn đã lắng nghe</span>
   </div>
 </section>
 
 </div>
 
-<!-- Counter -->
-<div class="counter" id="counter"></div>
-
-<!-- Navigation buttons -->
-<div class="nav-controls" id="nav-controls">
-  <button class="nav-btn" id="btn-prev" title="Slide trước (←)">&#8592;</button>
-  <button class="nav-btn" id="btn-next" title="Slide tiếp (→)">&#8594;</button>
+<div class="slide-counter" id="counter">1 / 22</div>
+<div class="nav-controls">
+  <button class="nav-btn" onclick="prev()">&#8592;</button>
+  <button class="nav-btn" onclick="next()">&#8594;</button>
 </div>
 
 <script>
 const slides = document.querySelectorAll('.slide');
-const navControls = document.getElementById('nav-controls');
-const counter = document.getElementById('counter');
-let current = parseInt(localStorage.getItem('slam-slide-pos') || '0', 10);
+let current = parseInt(localStorage.getItem('slam-deck-pos') || '0', 10);
 if (current >= slides.length) current = 0;
 
-function show(idx) {
+function show(i) {
   slides.forEach(s => s.classList.remove('active'));
-  slides[idx].classList.add('active');
-  current = idx;
-  localStorage.setItem('slam-slide-pos', idx);
-  counter.textContent = (idx + 1) + ' / ' + slides.length;
-  const isDark = slides[idx].classList.contains('title-slide') || slides[idx].classList.contains('section-slide');
-  navControls.classList.toggle('dark-nav', isDark);
-  counter.classList.toggle('dark-counter', isDark);
+  slides[i].classList.add('active');
+  document.getElementById('counter').textContent = (i + 1) + ' / ' + slides.length;
+  localStorage.setItem('slam-deck-pos', i);
 }
-show(current);
 
-function prev() { show((current - 1 + slides.length) % slides.length); }
-function next() { show((current + 1) % slides.length); }
-
-document.getElementById('btn-prev').addEventListener('click', e => { e.stopPropagation(); prev(); });
-document.getElementById('btn-next').addEventListener('click', e => { e.stopPropagation(); next(); });
+function next() { current = (current + 1) % slides.length; show(current); }
+function prev() { current = (current - 1 + slides.length) % slides.length; show(current); }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); next(); }
-  if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
-  if (e.key === 'Home') { e.preventDefault(); show(0); }
-  if (e.key === 'End') { e.preventDefault(); show(slides.length - 1); }
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
 });
+
+function fitDeck() {
+  const deck = document.getElementById('deck');
+  const pad = 48;
+  const sx = (window.innerWidth - pad * 2) / 1920;
+  const sy = (window.innerHeight - pad * 2) / 1080;
+  const s = Math.min(sx, sy, 1);
+  deck.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+}
+window.addEventListener('resize', fitDeck);
+fitDeck();
+show(current);
 </script>
+
 </body>
 </html>
