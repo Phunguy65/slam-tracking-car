@@ -327,40 +327,47 @@ h3 { font-family: var(--font-display); font-size: 32px; font-weight: 500; line-h
   <div class="slide-body">
     <div class="kicker">Thiết kế phần cứng</div>
     <h2 style="color:#f0ede8;">Kiến trúc khối hệ thống</h2>
-    <div class="three-col" style="margin-top:24px;">
-      <div>
-        <h3 style="font-size:20px; color:#7eb8da; margin-bottom:16px;">Khối Cảm biến</h3>
-        <ul class="bullet-list">
-          <li>LiDAR LDS02RR — UART 360°</li>
-          <li>MPU6050 IMU — I2C 6-DoF</li>
-          <li>Encoder × 2 — Interrupt</li>
-          <li>ESP32-CAM — HTTP MJPEG</li>
-        </ul>
+    <div style="display:grid; grid-template-columns:1fr 1.4fr; gap:56px; align-items:center; margin-top:24px;">
+      <div style="position:relative;">
+        <img src="assets/robot.jpg" alt="SLAM Tracking Car Robot" style="width:100%; max-height:520px; object-fit:contain; border-radius:6px; border:1px solid rgba(240,237,232,0.12); box-shadow:0 12px 40px rgba(0,0,0,0.4); display:block;"/>
+        <div style="margin-top:12px; text-align:center; font-size:13px; color:rgba(240,237,232,0.4); letter-spacing:0.03em;">Mô hình xe robot thực tế</div>
       </div>
-      <div>
-        <h3 style="font-size:20px; color:#7eb8da; margin-bottom:16px;">Khối Xử lý</h3>
-        <ul class="bullet-list">
-          <li>ESP32 Main — micro-ROS node</li>
-          <li>ESP32-CAM — Video streamer</li>
-          <li>Giao tiếp: WiFi UDP → Agent</li>
-        </ul>
-        <h3 style="font-size:20px; color:#7eb8da; margin-top:24px; margin-bottom:16px;">Khối Chấp hành</h3>
-        <ul class="bullet-list">
-          <li>TB6612 — PWM 2 kênh motor</li>
-          <li>2× Servo SG90 — Pan &amp; Tilt</li>
-        </ul>
-      </div>
-      <div>
-        <h3 style="font-size:20px; color:#7eb8da; margin-bottom:16px;">Khối Nguồn</h3>
-        <ul class="bullet-list">
-          <li>3 cặp pin Li-ion 18650 cách ly</li>
-          <li>Buck LM2596 #1 → MCU + Sensor</li>
-          <li>Buck LM2596 #2 → Servo + LiDAR</li>
-          <li>Pin trực tiếp → Motor Driver</li>
-        </ul>
-        <div style="margin-top:24px; padding:12px 16px; background:#181d25; border:1px solid rgba(240,237,232,0.1); border-radius:3px;">
-          <p style="font-size:14px; color:rgba(240,237,232,0.5);">Tổng chi phí phần cứng</p>
-          <p style="font-size:28px; font-family:var(--font-display); color:#f0ede8;">~1.200.000 VNĐ</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:28px 40px;">
+        <div>
+          <h3 style="font-size:18px; color:#7eb8da; margin-bottom:12px;">Khối Cảm biến</h3>
+          <ul class="bullet-list" style="font-size:16px;">
+            <li>LiDAR LDS02RR — UART 360°</li>
+            <li>MPU6050 IMU — I2C 6-DoF</li>
+            <li>Encoder × 2 — Interrupt</li>
+            <li>ESP32-CAM — HTTP MJPEG</li>
+          </ul>
+        </div>
+        <div>
+          <h3 style="font-size:18px; color:#7eb8da; margin-bottom:12px;">Khối Xử lý</h3>
+          <ul class="bullet-list" style="font-size:16px;">
+            <li>ESP32 Main — micro-ROS</li>
+            <li>ESP32-CAM — Streamer</li>
+            <li>WiFi UDP → Agent</li>
+          </ul>
+        </div>
+        <div>
+          <h3 style="font-size:18px; color:#7eb8da; margin-bottom:12px;">Khối Chấp hành</h3>
+          <ul class="bullet-list" style="font-size:16px;">
+            <li>TB6612 — PWM 2 kênh</li>
+            <li>2× Servo SG90 — Pan/Tilt</li>
+          </ul>
+        </div>
+        <div>
+          <h3 style="font-size:18px; color:#7eb8da; margin-bottom:12px;">Khối Nguồn</h3>
+          <ul class="bullet-list" style="font-size:16px;">
+            <li>3 cặp Li-ion 18650</li>
+            <li>2× Buck LM2596</li>
+            <li>Pin trực tiếp → Motor</li>
+          </ul>
+        </div>
+        <div style="grid-column:1/-1; padding:12px 16px; background:#181d25; border:1px solid rgba(240,237,232,0.1); border-radius:3px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:14px; color:rgba(240,237,232,0.5);">Tổng chi phí phần cứng</span>
+          <span style="font-size:24px; font-family:var(--font-display); color:#f0ede8;">~1.200.000 VNĐ</span>
         </div>
       </div>
     </div>
