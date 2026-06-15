@@ -107,7 +107,10 @@ def generate_launch_description():
         package="slam_car_perception",
         executable="cam_bridge_node",
         output="screen",
-        parameters=[{"cam_url": LaunchConfiguration("cam_url")}],
+        parameters=[
+            PathJoinSubstitution([pkg_share, "config", "person_tracker.yaml"]),
+            {"cam_url": LaunchConfiguration("cam_url")},
+        ],
     )
 
     # ── robot_localization EKF (odom + IMU fusion) ───────────

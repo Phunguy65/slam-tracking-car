@@ -218,7 +218,7 @@ void ros_bridge_spin() {
     }
 
     if (ros_state == ROS_AGENT_CONNECTED) {
-        rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
+        rclc_executor_spin_some(&executor, RCL_MS_TO_NS(1));
     }
 
     if (ros_state == ROS_AGENT_DISCONNECTED) {

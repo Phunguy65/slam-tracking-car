@@ -88,6 +88,7 @@ class TrackingControllerNode(Node):
         )
 
         self.current_servo_angle = 0.0
+        self._last_published_servo_angle = float("nan")
         self.tracking_state = TrackingState.IDLE
         self.last_target_time = 0.0
         self.state_start_time = 0.0
@@ -218,7 +219,8 @@ class TrackingControllerNode(Node):
         self.last_target_bearing = target.bearing_rad
         self.last_movement_direction = 1.0 if target.bearing_rad >= 0.0 else -1.0
 
-        servo_delta = self.servo_pid.step(target.bearing_rad, 1.0 / 50.0) * (1.0 / 50.0)
+        error = target.bearing_rad - self.current_servo_angle
+        servo_delta = self.servo_pid.step(error, 1.0 / 50.0) * (1.0 / 50.0)
         self.current_servo_angle = self._clamp(
             self.current_servo_angle + servo_delta,
             -self.max_servo_angle,
@@ -264,12 +266,19 @@ class TrackingControllerNode(Node):
             )
             self.current_servo_angle = self.scan_angle
 
-        msg = JointState()
-        msg.header = Header()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.name = ["camera_pan_joint"]
-        msg.position = [self.current_servo_angle]
-        self.servo_cmd_pub.publish(msg)
+        SERVO_DEADBAND = 0.01
+        if (
+            not math.isfinite(self._last_published_servo_angle)
+            or abs(self.current_servo_angle - self._last_published_servo_angle)
+            > SERVO_DEADBAND
+        ):
+            msg = JointState()
+            msg.header = Header()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.name = ["camera_pan_joint"]
+            msg.position = [self.current_servo_angle]
+            self.servo_cmd_pub.publish(msg)
+            self._last_published_servo_angle = self.current_servo_angle
 
     def _wheel_control_loop(self):
         cmd = Twist()

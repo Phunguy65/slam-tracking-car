@@ -46,6 +46,6 @@ void setup() {
 
 void loop() {
     lidar_loop();
-
     ros_bridge_spin();
+    lidar_loop();
 }

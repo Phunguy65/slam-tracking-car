@@ -17,9 +17,9 @@ static const float MOTOR_SPEED_DEADBAND = 0.01f;
 static const float ANGULAR_TURN_DEADBAND = 0.08f;
 static const float ANGULAR_FULL_BOOST = 0.8f;
 static const int PWM_MIN = 80;
-static const int PWM_TURN_MIN = 170;
+static const int PWM_TURN_MIN = 200;
 static const int PWM_IN_PLACE_TURN_MIN = 235;
-static const int PWM_MAX = 255;
+static const int PWM_MAX = 170;
 
 // ── Spinlock for direction critical section ─────────────────────────────────
 #ifndef UNIT_TEST
