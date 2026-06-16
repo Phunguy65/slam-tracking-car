@@ -1,3 +1,6 @@
+import math
+from types import SimpleNamespace
+
 from slam_car_perception.person_tracker_node import PersonTrackerNode
 
 from slam_car_interfaces.msg import BoundingBox2D
@@ -79,3 +82,46 @@ def test_identity_decay_no_op_when_no_stored_id():
 
     assert person_id == ""
     assert confidence == 0.0
+
+
+class _RangeHarness:
+    def __init__(self, ranges):
+        self.camera_info = SimpleNamespace(k=[1.0, 0.0, 0.0])
+        self.latest_scan = SimpleNamespace(
+            ranges=ranges,
+            angle_min=-0.3,
+            angle_increment=0.1,
+        )
+        self.range_cone_half_angle_rad = 0.17
+        self.bearing_transform = SimpleNamespace(
+            pixel_to_laser_bearing=lambda *args: 0.0
+        )
+        self.warnings = []
+
+    def _warn_limited(self, key, message):
+        self.warnings.append((key, message))
+
+
+def test_assign_metric_range_returns_closest_valid_lidar_ray_in_bearing_cone():
+    harness = _RangeHarness([math.inf, 2.5, 1.8, 1.2, 0.2, 4.5, 1.0])
+    body = bbox(0.5, 0.5, 0.2, 0.4)
+
+    range_m, bearing_rad = PersonTrackerNode._assign_metric_range(
+        harness, body, width=640, stamp=None
+    )
+
+    assert range_m == 1.2
+    assert bearing_rad == 0.0
+
+
+def test_assign_metric_range_returns_nan_when_no_valid_ray_in_bearing_cone():
+    harness = _RangeHarness([1.0, math.inf, 0.2, math.inf, 4.5, math.inf, 1.0])
+    body = bbox(0.5, 0.5, 0.2, 0.4)
+
+    range_m, bearing_rad = PersonTrackerNode._assign_metric_range(
+        harness, body, width=640, stamp=None
+    )
+
+    assert math.isnan(range_m)
+    assert bearing_rad == 0.0
+    assert harness.warnings[-1][0] == "no_match"

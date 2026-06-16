@@ -9,7 +9,7 @@ from rcl_interfaces.msg import SetParametersResult
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from sensor_msgs.msg import JointState, LaserScan
-from std_msgs.msg import Header, String
+from std_msgs.msg import Bool, Header, String
 
 from slam_car_interfaces.msg import TrackedPersonArray
 
@@ -46,9 +46,7 @@ class TrackingState:
 
     IDLE = "IDLE"
     TRACKING = "TRACKING"
-    SEARCH_CONTINUE = "SEARCH_CONTINUE"
     SEARCH_SCAN = "SEARCH_SCAN"
-    SEARCH_ROTATE = "SEARCH_ROTATE"
 
 
 class TrackingControllerNode(Node):
@@ -100,6 +98,8 @@ class TrackingControllerNode(Node):
         self.obstacle = False
         self.scan_direction = 1.0
         self.scan_angle = 0.0
+        self.target_confirm_count = 0
+        self.enabled = False
 
         self.add_on_set_parameters_callback(self._on_parameter_change)
 
@@ -107,6 +107,9 @@ class TrackingControllerNode(Node):
             TrackedPersonArray, "/tracked_persons", self._tracked_callback, 10
         )
         self.create_subscription(LaserScan, "/scan", self._scan_callback, 10)
+        self.create_subscription(
+            Bool, "/tracking_controller/enabled", self._enabled_callback, 10
+        )
         self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 10)
         self.servo_cmd_pub = self.create_publisher(JointState, "/servo_cmd", 10)
         self.status_pub = self.create_publisher(
@@ -134,16 +137,13 @@ class TrackingControllerNode(Node):
         self.declare_parameter("servo_handoff_threshold", 0.52)
         self.declare_parameter("max_linear_speed", 0.3)
         self.declare_parameter("max_angular_speed", 1.0)
-        self.declare_parameter("target_distance_min", 1.0)
-        self.declare_parameter("target_distance_max", 1.5)
-        self.declare_parameter("distance_too_far", 2.5)
-        self.declare_parameter("distance_too_close", 0.6)
-        self.declare_parameter("front_safety_distance", 0.3)
+        self.declare_parameter("target_distance_min", 0.15)
+        self.declare_parameter("target_distance_max", 0.25)
+        self.declare_parameter("front_safety_distance", 0.15)
         self.declare_parameter("front_safety_half_arc_rad", 0.35)
-        self.declare_parameter("search_continue_duration", 0.5)
-        self.declare_parameter("search_scan_duration", 2.0)
-        self.declare_parameter("search_rotate_duration", 5.0)
-        self.declare_parameter("lost_timeout", 0.5)
+        self.declare_parameter("search_scan_duration", 6.0)
+        self.declare_parameter("lost_timeout", 2.0)
+        self.declare_parameter("target_confirm_frames", 3)
 
     def _load_parameters(self):
         for name in [
@@ -162,18 +162,13 @@ class TrackingControllerNode(Node):
         self.max_angular_speed = self.get_parameter("max_angular_speed").value
         self.target_distance_min = self.get_parameter("target_distance_min").value
         self.target_distance_max = self.get_parameter("target_distance_max").value
-        self.distance_too_far = self.get_parameter("distance_too_far").value
-        self.distance_too_close = self.get_parameter("distance_too_close").value
         self.front_safety_distance = self.get_parameter("front_safety_distance").value
         self.front_safety_half_arc_rad = self.get_parameter(
             "front_safety_half_arc_rad"
         ).value
-        self.search_continue_duration = self.get_parameter(
-            "search_continue_duration"
-        ).value
         self.search_scan_duration = self.get_parameter("search_scan_duration").value
-        self.search_rotate_duration = self.get_parameter("search_rotate_duration").value
         self.lost_timeout = self.get_parameter("lost_timeout").value
+        self.target_confirm_frames = self.get_parameter("target_confirm_frames").value
 
     def _on_parameter_change(self, params: list[Parameter]) -> SetParametersResult:
         for param in params:
@@ -206,13 +201,28 @@ class TrackingControllerNode(Node):
     def _scan_callback(self, msg: LaserScan):
         self.latest_scan = msg
 
+    def _enabled_callback(self, msg: Bool):
+        """Enable/disable controller output based on dashboard mode."""
+        if self.enabled and not msg.data:
+            self.tracking_state = TrackingState.IDLE
+            self.target_confirm_count = 0
+            self.servo_pid.reset()
+            self.yaw_pid.reset()
+            self.linear_pid.reset()
+            self.current_servo_angle = 0.0
+        self.enabled = msg.data
+
     def _tracked_callback(self, msg: TrackedPersonArray):
+        if not self.enabled:
+            return
         current_time = self.get_clock().now().nanoseconds / 1e9
         target = next((person for person in msg.persons if person.is_target), None)
         if target is None:
             return
 
-        self.tracking_state = TrackingState.TRACKING
+        self.target_confirm_count += 1
+        if self.target_confirm_count >= self.target_confirm_frames:
+            self.tracking_state = TrackingState.TRACKING
         self.last_target_time = current_time
         self.last_target_id = target.person_id
         self.last_target_range = target.range_m
@@ -229,6 +239,8 @@ class TrackingControllerNode(Node):
 
     def _lost_target_check(self):
         """Drive lost-target FSM transitions from a wall-clock timer."""
+        if not self.enabled:
+            return
         if self.tracking_state == TrackingState.IDLE:
             return
         current_time = self.get_clock().now().nanoseconds / 1e9
@@ -237,25 +249,20 @@ class TrackingControllerNode(Node):
 
     def _handle_target_lost(self, current_time: float):
         if self.tracking_state == TrackingState.TRACKING:
-            self.tracking_state = TrackingState.SEARCH_CONTINUE
+            self.tracking_state = TrackingState.SEARCH_SCAN
             self.state_start_time = current_time
-        elif self.tracking_state == TrackingState.SEARCH_CONTINUE:
-            if current_time - self.state_start_time > self.search_continue_duration:
-                self.tracking_state = TrackingState.SEARCH_SCAN
-                self.state_start_time = current_time
-                self.scan_direction = self.last_movement_direction or 1.0
+            self.target_confirm_count = 0
+            self.scan_direction = self.last_movement_direction or 1.0
         elif self.tracking_state == TrackingState.SEARCH_SCAN:
             if current_time - self.state_start_time > self.search_scan_duration:
-                self.tracking_state = TrackingState.SEARCH_ROTATE
-                self.state_start_time = current_time
-        elif self.tracking_state == TrackingState.SEARCH_ROTATE:
-            if current_time - self.state_start_time > self.search_rotate_duration:
                 self.tracking_state = TrackingState.IDLE
                 self.state_start_time = current_time
                 self.last_target_id = ""
                 self.last_target_range = math.nan
 
     def _servo_control_loop(self):
+        if not self.enabled:
+            return
         if self.tracking_state == TrackingState.SEARCH_SCAN:
             scan_speed = 2.0 * self.max_servo_angle / self.search_scan_duration
             self.scan_angle += self.scan_direction * scan_speed * (1.0 / 50.0)
@@ -281,14 +288,12 @@ class TrackingControllerNode(Node):
             self._last_published_servo_angle = self.current_servo_angle
 
     def _wheel_control_loop(self):
+        if not self.enabled:
+            return
         cmd = Twist()
         if self.tracking_state == TrackingState.TRACKING:
             cmd.angular.z = self._tracking_yaw_command()
             cmd.linear.x = self._tracking_linear_command()
-        elif self.tracking_state == TrackingState.SEARCH_CONTINUE:
-            cmd.angular.z = self.last_movement_direction * 0.3
-        elif self.tracking_state == TrackingState.SEARCH_ROTATE:
-            cmd.angular.z = (2.0 * math.pi) / self.search_rotate_duration
         elif self.tracking_state == TrackingState.IDLE:
             self.servo_pid.reset()
             self.yaw_pid.reset()
@@ -325,10 +330,6 @@ class TrackingControllerNode(Node):
         ):
             self.linear_pid.reset()
             return 0.0
-        if self.last_target_range >= self.distance_too_far:
-            return self.max_linear_speed
-        if self.last_target_range <= self.distance_too_close:
-            return -self.max_linear_speed
         center = (self.target_distance_min + self.target_distance_max) / 2.0
         return self.linear_pid.step(self.last_target_range - center, 1.0 / 10.0)
 

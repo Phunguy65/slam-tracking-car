@@ -17,11 +17,7 @@ person_tracker_node:
     body_confidence_threshold: 0.5
     confidence_decay_rate: 0.1
     camera_fov_horizontal_deg: 62.0
-    leg_cluster_min_width_m: 0.05
-    leg_cluster_max_width_m: 0.30
-    leg_pair_min_gap_m: 0.15
-    leg_pair_max_gap_m: 0.35
-    bearing_match_tolerance_rad: 0.10
+    range_cone_half_angle_rad: 0.17
 
 tracking_controller_node:
   ros__parameters:
@@ -38,13 +34,10 @@ tracking_controller_node:
     servo_handoff_threshold: 0.52
     max_linear_speed: 0.3
     max_angular_speed: 1.0
-    target_distance_min: 1.0
-    target_distance_max: 1.5
-    distance_too_far: 2.5
-    distance_too_close: 0.6
-    front_safety_distance: 0.3
+    target_distance_min: 0.15
+    target_distance_max: 0.25
+    front_safety_distance: 0.15
     front_safety_half_arc_rad: 0.35
-    search_continue_duration: 0.5
-    search_scan_duration: 2.0
-    search_rotate_duration: 5.0
-    lost_timeout: 0.5
+    search_scan_duration: 6.0
+    lost_timeout: 2.0
+    target_confirm_frames: 3

@@ -24,7 +24,6 @@ from std_msgs.msg import Header
 
 from slam_car_interfaces.msg import BoundingBox2D, TrackedPerson, TrackedPersonArray
 from slam_car_perception.bearing_transform import BearingTransform
-from slam_car_perception.leg_clusterer import cluster_scan, pair_legs
 
 try:
     from ultralytics import YOLO
@@ -57,11 +56,7 @@ class PersonTrackerNode(Node):
         self.declare_parameter("body_confidence_threshold", 0.5)
         self.declare_parameter("confidence_decay_rate", 0.1)
         self.declare_parameter("camera_fov_horizontal_deg", 62.0)
-        self.declare_parameter("leg_cluster_min_width_m", 0.05)
-        self.declare_parameter("leg_cluster_max_width_m", 0.30)
-        self.declare_parameter("leg_pair_min_gap_m", 0.15)
-        self.declare_parameter("leg_pair_max_gap_m", 0.35)
-        self.declare_parameter("bearing_match_tolerance_rad", 0.10)
+        self.declare_parameter("range_cone_half_angle_rad", 0.17)
 
         self.bridge = CvBridge()
         self.db_path = os.path.expanduser(self.get_parameter("db_path").value)
@@ -70,12 +65,8 @@ class PersonTrackerNode(Node):
             "body_confidence_threshold"
         ).value
         self.confidence_decay_rate = self.get_parameter("confidence_decay_rate").value
-        self.leg_cluster_min_width = self.get_parameter("leg_cluster_min_width_m").value
-        self.leg_cluster_max_width = self.get_parameter("leg_cluster_max_width_m").value
-        self.leg_pair_min_gap = self.get_parameter("leg_pair_min_gap_m").value
-        self.leg_pair_max_gap = self.get_parameter("leg_pair_max_gap_m").value
-        self.bearing_match_tolerance = self.get_parameter(
-            "bearing_match_tolerance_rad"
+        self.range_cone_half_angle_rad = self.get_parameter(
+            "range_cone_half_angle_rad"
         ).value
         self.latest_scan = None
         self.camera_info = None
@@ -355,7 +346,7 @@ class PersonTrackerNode(Node):
         self.tracked_pub.publish(msg_out)
 
     def _assign_metric_range(self, body_bbox: BoundingBox2D, width: int, stamp):
-        """Fuse body bearing with latest LiDAR leg-pair clusters."""
+        """Fuse body bearing with the closest valid LiDAR ray in its cone."""
         body_center_u = body_bbox.center_x * width
         try:
             bearing_rad = self.bearing_transform.pixel_to_laser_bearing(
@@ -369,34 +360,30 @@ class PersonTrackerNode(Node):
             raise _TFLookupError(str(exc)) from exc
 
         if self.latest_scan is None:
-            self._warn_limited("no_match", "No leg-pair match: /scan not received")
+            self._warn_limited("no_match", "No LiDAR range match: /scan not received")
             return math.nan, bearing_rad
 
-        clusters = cluster_scan(
-            self.latest_scan.ranges,
-            self.latest_scan.angle_min,
-            self.latest_scan.angle_increment,
-            min_width=self.leg_cluster_min_width,
-            max_width=self.leg_cluster_max_width,
-        )
-        pairs = pair_legs(clusters, self.leg_pair_min_gap, self.leg_pair_max_gap)
-        if not pairs:
-            self._warn_limited("no_match", "No leg-pair match for tracked body")
-            return math.nan, bearing_rad
-
-        def angular_distance(pair):
-            return abs(
+        valid_ranges = []
+        for index, range_m in enumerate(self.latest_scan.ranges):
+            if not math.isfinite(range_m) or range_m < 0.3 or range_m > 4.0:
+                continue
+            ray_angle = (
+                self.latest_scan.angle_min + index * self.latest_scan.angle_increment
+            )
+            angle_error = abs(
                 math.atan2(
-                    math.sin(pair[1] - bearing_rad), math.cos(pair[1] - bearing_rad)
+                    math.sin(ray_angle - bearing_rad),
+                    math.cos(ray_angle - bearing_rad),
                 )
             )
+            if angle_error <= self.range_cone_half_angle_rad:
+                valid_ranges.append(range_m)
 
-        best_range, best_bearing = min(pairs, key=angular_distance)
-        if angular_distance((best_range, best_bearing)) > self.bearing_match_tolerance:
-            self._warn_limited("no_match", "No leg-pair match within bearing tolerance")
+        if not valid_ranges:
+            self._warn_limited("no_match", "No LiDAR range match within bearing cone")
             return math.nan, bearing_rad
 
-        return float(best_range), float(bearing_rad)
+        return float(min(valid_ranges)), float(bearing_rad)
 
     def _apply_confidence_decay(self, track_info: dict, current_time: float):
         """Decay confidence over time and drop identity when below threshold."""

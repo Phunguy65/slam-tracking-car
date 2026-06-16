@@ -20,6 +20,10 @@ import { useRosStore } from '@/stores/ros-store.ts';
 import type { Twist } from '@/types/ros-messages.ts';
 import { EnrollModal } from './enroll-modal.tsx';
 
+interface BoolMsg {
+    data: boolean;
+}
+
 export function TrackingPanels() {
     const status = useRosStore((s) => s.status);
     const isConnected = status === 'connected';
@@ -40,9 +44,15 @@ export function TrackingPanels() {
         'geometry_msgs/Twist',
     );
 
+    const publishTrackingEnabled = usePublisher<BoolMsg>(
+        '/tracking_controller/enabled',
+        'std_msgs/Bool',
+    );
+
     const handleTrackingToggle = useCallback(
         (enabled: boolean) => {
             setTrackingEnabled(enabled);
+            publishTrackingEnabled({ data: enabled });
             if (!enabled) {
                 publishCmdVel({
                     linear: { x: 0, y: 0, z: 0 },
@@ -50,17 +60,18 @@ export function TrackingPanels() {
                 });
             }
         },
-        [setTrackingEnabled, publishCmdVel],
+        [setTrackingEnabled, publishCmdVel, publishTrackingEnabled],
     );
 
     const handleManualOverrideToggle = useCallback(
         (override: boolean) => {
             setManualOverride(override);
+            publishTrackingEnabled({ data: false });
             if (override) {
                 setTrackingEnabled(false);
             }
         },
-        [setManualOverride, setTrackingEnabled],
+        [setManualOverride, setTrackingEnabled, publishTrackingEnabled],
     );
 
     const targetName = targetPerson
