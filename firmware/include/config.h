@@ -157,7 +157,7 @@
 
 // ── Robot geometry (for odometry) ──────────────────────────────────────────────
 #define WHEEL_RADIUS 0.033f     // meters (33mm, diameter 66mm)
-#define WHEEL_SEPARATION 0.17f  // meters (170mm, center-to-center)
+#define WHEEL_SEPARATION 0.12f  // meters (120mm, center-to-center)
 
 // ── Safety timeouts ────────────────────────────────────────────────────────────
 #define CMD_VEL_TIMEOUT_MS 1000      // ms without cmd_vel → motors stop

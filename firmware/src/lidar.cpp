@@ -129,7 +129,8 @@ static void lidar_scan_point_cb(float angle_deg, float distance_mm, float qualit
         scan_ready_flag = true;
     }
 
-    int idx = constrain((int)angle_deg, 0, SCAN_POINTS - 1);
+    int raw_idx = constrain((int)angle_deg, 0, SCAN_POINTS - 1);
+    int idx = (SCAN_POINTS - raw_idx) % SCAN_POINTS;
 
     const float MIN_RANGE_M = 0.13f;
     const float MAX_RANGE_M = 8.0f;
