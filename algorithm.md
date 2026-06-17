@@ -99,6 +99,170 @@ ceres_trust_strategy: LEVENBERG_MARQUARDT
 - **SCHUR_JACOBI**: Tiền xử lý (preconditioner) dựa trên complement Schur — tăng tốc hội tụ
 - **LEVENBERG_MARQUARDT**: Chiến lược trust-region kết hợp Gauss-Newton và gradient descent — ổn định khi xa nghiệm, nhanh khi gần nghiệm
 
+##### Phép biến đổi T — Giải thích trực quan
+
+Phép biến đổi `T = (dx, dy, dθ)` trả lời câu hỏi: *"Robot đã dịch chuyển bao xa và xoay bao nhiêu giữa 2 lần quét LiDAR?"*
+
+```
+        Scan cũ (t-1)              Scan mới (t)
+
+          ·  ·                       ·  ·
+         ·    ·                     ·    ·
+        · Robot·                   · Robot·
+         ·    ·                     ·    ·
+          ·  ·                       ·  ·
+           |                           |
+           └───── T = (dx, dy, dθ) ────┘
+                  dịch 5cm sang phải
+                  dịch 3cm về trước
+                  xoay 2° theo chiều kim đồng hồ
+```
+
+T là phép biến đổi cứng (rigid body transformation) trong mặt phẳng 2D. Khi áp dụng T lên một điểm `p = (px, py)` từ scan mới, ta được vị trí tương ứng trên bản đồ:
+
+```
+Ma trận biến đổi T áp dụng lên điểm p = (px, py):
+
+    ┌ px' ┐   ┌ cos(dθ)  -sin(dθ)  dx ┐   ┌ px ┐
+    │ py' │ = │ sin(dθ)   cos(dθ)  dy │ × │ py │
+    └  1  ┘   └    0         0      1 ┘   └  1 ┘
+
+    (vị trí       (ma trận xoay + dịch)     (vị trí
+     trên                                    trong
+     bản đồ)                                 scan mới)
+```
+
+Ví dụ cụ thể: Nếu T = (10cm, 0cm, 5°) và điểm laser p = (1m, 0m):
+- Xoay p quanh gốc tọa độ 5° → p trở thành (0.996m, 0.087m)
+- Dịch thêm (10cm, 0cm) → kết quả cuối: (1.096m, 0.087m)
+
+##### Ví dụ minh họa toàn bộ Scan Matching Flow
+
+```
+Thời điểm t:   Robot ở vị trí A, quét được scan A (tham chiếu)
+Thời điểm t+1: Robot dịch chuyển, quét được scan B (mới)
+
+     Scan A (tham chiếu)           Scan B (mới)
+
+     ████                              ████
+     █  █    tường                     █  █
+     █  █                              █  █
+     ████                              ████
+       ↑                                 ↑
+     Robot A                           Robot B
+     (0,0,0°)                          (?,?,?°) ← cần tìm T
+
+─────────────────────────────────────────────────────────────────
+BƯỚC 1: Biến scan A thành bản đồ xác suất (+ Gaussian blur)
+
+     Lưới xác suất (mỗi ô = xác suất có vật cản):
+
+     0.0  0.0  0.2  0.5  0.2  0.0  0.0
+     0.0  0.2  0.7 [1.0] 0.7  0.2  0.0   ← [1.0] = tường thực
+     0.0  0.2  0.7 [1.0] 0.7  0.2  0.0   ← blur tạo "vùng hấp dẫn"
+     0.0  0.0  0.2  0.5  0.2  0.0  0.0      xung quanh vật cản
+
+     Tác dụng blur: khi scan B "gần đúng" vị trí, các điểm vẫn
+     nhận được xác suất > 0, giúp tối ưu hóa "trượt" được đến
+     đúng nơi thay vì bị kẹt ở điểm sai.
+
+─────────────────────────────────────────────────────────────────
+BƯỚC 2: Quét thô — thử TỪNG vị trí đặt scan B (brute force)
+
+     Thử T₁ = ( 0cm, 0cm, 0°): điểm rơi vào ô 0.1, 0.0, 0.2
+                                 → Tổng = 0.3  ✗
+
+     Thử T₂ = ( 5cm, 0cm, 0°): điểm rơi vào ô 0.5, 0.2, 0.7
+                                 → Tổng = 1.4
+
+     Thử T₃ = (10cm, 0cm, 0°): điểm rơi vào ô 1.0, 0.7, 1.0
+                                 → Tổng = 2.7  ★ CAO NHẤT
+
+     Thử T₄ = (15cm, 0cm, 0°): điểm rơi vào ô 0.5, 0.2, 0.7
+                                 → Tổng = 1.4  ✗
+     ... (thử tiếp với dy, dθ khác nhau)
+
+     → Kết quả thô: T ≈ (10cm, 0cm, 0°), chính xác ±5cm, ±2°
+
+─────────────────────────────────────────────────────────────────
+BƯỚC 3: Ceres Solver tinh chỉnh từ kết quả thô
+
+     Bắt đầu: T = (10.0cm, 0.0cm, 0.00°)    E = 0.25
+
+     Vòng 1:  Tính gradient → dịch T theo hướng giảm lỗi
+              T = (10.2cm, 0.1cm, 0.30°)      E = 0.08
+
+     Vòng 2:  Tiếp tục
+              T = (10.3cm, 0.15cm, 0.28°)     E = 0.01
+
+     Vòng 3:  Gần hội tụ
+              T = (10.31cm, 0.14cm, 0.29°)    E = 0.001
+
+     → Dừng! Kết quả: robot dịch 10.31cm, lệch 0.14cm, xoay 0.29°
+```
+
+##### Tại sao kết hợp Correlative + Ceres thay vì dùng riêng?
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  CHỈ DÙNG CORRELATIVE (brute force):                            │
+│  ✓ Không bao giờ bị local minimum (xét hết mọi khả năng)       │
+│  ✗ Chậm nếu muốn lưới mịn (0.1mm, 0.01°)                     │
+│  ✗ Kết quả thô (±5cm, ±2°) — không đủ cho SLAM chất lượng     │
+│                                                                 │
+│  CHỈ DÙNG CERES (gradient descent):                             │
+│  ✓ Kết quả cực kỳ chính xác (sub-mm, sub-degree)               │
+│  ✗ Cần điểm khởi đầu tốt                                       │
+│  ✗ Dễ rơi vào local minimum nếu khởi đầu sai                   │
+│                                                                 │
+│     Hàm lỗi E(T) có thể trông như thế này:                     │
+│                                                                 │
+│     E │  *           *                                          │
+│       │ * *         * *    ← local minimum (bẫy!)               │
+│       │*   *   *   *   *                                        │
+│       │     * * * *        ← GLOBAL minimum (đáp án đúng)       │
+│       └──────────────────── T                                   │
+│                                                                 │
+│     Nếu khởi đầu ở bên trái → Ceres trượt vào bẫy local min   │
+│     Correlative quét hết → tìm được vùng global min trước       │
+│                                                                 │
+│  KẾT HỢP CẢ HAI = BEST OF BOTH WORLDS:                         │
+│  1. Correlative tìm vùng đúng (lưới thô, nhanh, an toàn)       │
+│  2. Ceres tinh chỉnh trong vùng đó (chính xác tuyệt đối)       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+##### Levenberg-Marquardt — Tại sao chọn chiến lược này?
+
+Levenberg-Marquardt (LM) là thuật toán tối ưu kết hợp 2 phương pháp:
+
+```
+                    Khi XA nghiệm              Khi GẦN nghiệm
+                    ─────────────              ───────────────
+Gradient Descent:   Bước lớn, nhanh            Bước lớn → dao động qua lại
+Gauss-Newton:       Không ổn định              Bước nhỏ, chính xác, hội tụ nhanh
+
+LM (kết hợp):      Dùng Gradient Descent       Tự chuyển sang Gauss-Newton
+                    (an toàn, ổn định)          (chính xác, hội tụ mượt)
+
+So sánh hành vi hội tụ:
+
+  Gradient Descent thuần:        Levenberg-Marquardt:
+
+       ╲    ╱                          ╲
+        ╲  ╱   ← dao động               ──╲──── ← hội tụ mượt mà
+         ╳                                  ╲___● (nghiệm)
+        ╱ ╲
+```
+
+LM tự điều chỉnh thông qua tham số damping (λ):
+- λ lớn → hành vi giống gradient descent (bước nhỏ, an toàn)
+- λ nhỏ → hành vi giống Gauss-Newton (bước lớn, chính xác)
+- Nếu bước hiện tại giảm lỗi → giảm λ (tin tưởng hơn)
+- Nếu bước hiện tại tăng lỗi → tăng λ (thận trọng hơn)
+
 #### 1.1.4 Điều kiện kích hoạt scan matching
 
 Để tránh xử lý thừa, scan matching chỉ kích hoạt khi robot di chuyển đủ xa:
